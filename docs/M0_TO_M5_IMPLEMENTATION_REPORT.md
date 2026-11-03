@@ -6,7 +6,7 @@ Date: 2026-11-02.
 
 - Replaced committed credential-like values in `.env.example` with placeholders and added a repository secret scan. The ignored local `.env` was not edited.
 - Expanded M2 domain models and ports for positions, strategies, liquidity shapes, capabilities, eligibility, chain events, transaction intents, portfolios, event sources, persistence, cache, leases and signing boundaries.
-- Added a versioned Sepolia manifest pinning 12 addresses and live runtime code hashes. Central config rejects chain/address mismatches, supports up to three RPC providers and exposes the manifest version.
+- Added required environment variables for all 12 Sepolia addresses and a versioned address-free manifest pinning live runtime code hashes. Central config validates every address, supports up to three RPC providers and exposes the manifest version.
 - Added viem failover transport, block-tagged reads and runtime-code hashing. Readiness requires all pinned hashes plus Sepolia, PostgreSQL and Redis health.
 - Added a Drizzle PostgreSQL schema for deployments, capabilities, vaults, config versions, headers, raw logs, cursors, balances, transactions, sessions, audit events, outbox and keeper jobs. EVM integers use `numeric(78,0)`/decimal strings.
 - Added checksummed, advisory-locked, transactional migration tooling plus guarded rollback SQL.

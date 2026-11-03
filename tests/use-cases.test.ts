@@ -12,7 +12,7 @@ import {
   MockSimulator,
   InMemoryAudit,
 } from '../packages/adapters/src/in-memory.js';
-const addr = '0x145bf19548AbcDd5a0355596de00E4d8992a6B60' as const;
+const addr = `0x${'1'.repeat(40)}` as const;
 test('vault lookup and isolation', async () => {
   const repo = new InMemoryVaultAdapter();
   await repo.save({

@@ -5,33 +5,34 @@ import { enforceSecurity, type RateLimiter } from '../apps/api/src/security.js';
 import type { DeploymentManifest } from '../packages/contracts/src/manifest.js';
 
 const address = `0x${'1'.repeat(40)}` as const;
+const contractKeys = [
+  'PRICE_GUARD',
+  'SHAPE_LIBRARY',
+  'TIMELOCK_CONTROLLER',
+  'VAULT',
+  'VAULT_FACTORY',
+  'VAULT_LENS',
+  'FEE_COLLECTOR',
+  'NORMAL_LP_STRATEGY',
+  'BUY_THE_DIP_STRATEGY',
+  'SELL_THE_PUMP_STRATEGY',
+  'SWAP_EXECUTOR',
+  'ZAP',
+] as const;
+const contractEnvironment = Object.fromEntries(contractKeys.map((key) => [`CONTRACT_${key}`, address]));
 const manifest = {
   schemaVersion: 1,
   manifestVersion: 'security-test-v1',
   chainId: 11155111,
   network: 'sepolia',
-  contracts: Object.fromEntries(
-    [
-      'PRICE_GUARD',
-      'SHAPE_LIBRARY',
-      'TIMELOCK_CONTROLLER',
-      'VAULT',
-      'VAULT_FACTORY',
-      'VAULT_LENS',
-      'FEE_COLLECTOR',
-      'NORMAL_LP_STRATEGY',
-      'BUY_THE_DIP_STRATEGY',
-      'SELL_THE_PUMP_STRATEGY',
-      'SWAP_EXECUTOR',
-      'ZAP',
-    ].map((name) => [name, { name, address }]),
-  ),
+  contracts: Object.fromEntries(contractKeys.map((name) => [name, { name }])),
 } as unknown as DeploymentManifest;
 
 const secret = 'test-internal-key-with-at-least-32-characters';
 const config = loadConfig(
   {
     NODE_ENV: 'test',
+    ...contractEnvironment,
     SEPOLIA_RPC_URL: 'https://rpc.example.org',
     CORS_ALLOWED_ORIGINS_DEVELOPMENT: 'http://localhost:5173,https://dev.example.org',
     INTERNAL_API_KEY: secret,
@@ -186,7 +187,9 @@ test('rate-limited routes fail closed when Redis is missing or fails', async () 
 test('production rejects missing security config and non-HTTPS origins', () => {
   const base = {
     NODE_ENV: 'production',
+    ...contractEnvironment,
     SEPOLIA_RPC_URL: 'https://rpc.example.org',
+    DATABASE_URL: 'postgresql://database.example.org/vortexa',
     REDIS_URL: 'rediss://redis.example.org:6380',
     INTERNAL_API_KEY: secret,
   };

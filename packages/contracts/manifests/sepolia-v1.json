@@ -4,17 +4,17 @@
   "chainId": 11155111,
   "network": "sepolia",
   "contracts": {
-    "PRICE_GUARD": { "name": "PriceGuard", "address": "0x16e9bB9aB0A03Eefd5407b6A1DE187Fe0455917B", "runtimeCodeHash": "0xdfc702a2f3c7fda354a37924f0714fe0f427c04ebb13007f9d243bee5fdaec80" },
-    "SHAPE_LIBRARY": { "name": "ShapeLibrary", "address": "0x100a9A2eB0444E60eA593BE853dBBb8E324dd9C1", "runtimeCodeHash": "0x888388c2d3401d10e981f07314ab4bf13c78e74c7063e0670038955f28d544be" },
-    "TIMELOCK_CONTROLLER": { "name": "TimelockController", "address": "0x6C96C7A454e26a8Ced91f0F54638E9e0c3e6C954", "runtimeCodeHash": "0xef6d50482a6f230452eeff04125969ada535f34c849fb5da7409f5370f703d32" },
-    "VAULT": { "name": "Vault", "address": "0x145bf19548AbcDd5a0355596de00E4d8992a6B60", "runtimeCodeHash": "0x081e6ac536d042820e38ec328e7de3bb86d66e479443d75f8c77d854c81ee2f7" },
-    "VAULT_FACTORY": { "name": "VaultFactory", "address": "0xAf7bDb2E8E756af55c24B01fD2Cc0a7A79C1Aa21", "runtimeCodeHash": "0x0d411a6473a8673a55aa191b7db234026e93e4ac4a61dc7d4b96cc892f2f7ec0" },
-    "VAULT_LENS": { "name": "VaultLens", "address": "0x1A0bAD964be3F7e787a982865C5db6Dc1684Ce1d", "runtimeCodeHash": "0xd0bd378d20f75e8e75bac3f9812ac0a6dfed8bff5cf2511474f6a94a8bb73b71" },
-    "FEE_COLLECTOR": { "name": "FeeCollector", "address": "0xe3FFe17a8f006dD0F4e13DE51335a6Ff20E4b31f", "runtimeCodeHash": "0xc0323a5e3cd8cf26eadd984c21924b9019657a5401e23cbd93039c5eeb2d7f9d" },
-    "NORMAL_LP_STRATEGY": { "name": "NormalLPStrategy", "address": "0x8d5294A4B8F71078131620584F4cd21F6078FbF8", "runtimeCodeHash": "0x2e802a2f650f765211df3a18c96e31118c763ff71c716bfbdf5766756b98ef29" },
-    "BUY_THE_DIP_STRATEGY": { "name": "BuyTheDipStrategy", "address": "0x21D9626CCA2f3992Ab677b7E303A0BB039f6df78", "runtimeCodeHash": "0x40e59187bb57f8553da22019b65156cf09a200964734ef5ca072a6d418f66827" },
-    "SELL_THE_PUMP_STRATEGY": { "name": "SellThePumpStrategy", "address": "0x8ef913e037daceE310d7F965cDBAdf6981357E4D", "runtimeCodeHash": "0x9fc9992644818aa1dacb8e57342ddb8e953ede5a7ad9f5329b14d8dfff7cb250" },
-    "SWAP_EXECUTOR": { "name": "SwapExecutor", "address": "0xF75eB1D043E33ad8Fa581bff63D6452Bc752A011", "runtimeCodeHash": "0xae8708300012e69476444ac5d02a5c66dd22c7d9a77c155b71eb42057e485cf5" },
-    "ZAP": { "name": "Zap", "address": "0x657bfeB41365D7c8EC805D2e57506a4A035739eF", "runtimeCodeHash": "0xba5efea5afe0cf03f5bd6d600a3f730abc977c4337fb2b4d6d544d35e28d6e3a" }
+    "PRICE_GUARD": { "name": "PriceGuard", "runtimeCodeHash": "0xdfc702a2f3c7fda354a37924f0714fe0f427c04ebb13007f9d243bee5fdaec80" },
+    "SHAPE_LIBRARY": { "name": "ShapeLibrary", "runtimeCodeHash": "0x888388c2d3401d10e981f07314ab4bf13c78e74c7063e0670038955f28d544be" },
+    "TIMELOCK_CONTROLLER": { "name": "TimelockController", "runtimeCodeHash": "0xef6d50482a6f230452eeff04125969ada535f34c849fb5da7409f5370f703d32" },
+    "VAULT": { "name": "Vault", "runtimeCodeHash": "0x081e6ac536d042820e38ec328e7de3bb86d66e479443d75f8c77d854c81ee2f7" },
+    "VAULT_FACTORY": { "name": "VaultFactory", "runtimeCodeHash": "0x0d411a6473a8673a55aa191b7db234026e93e4ac4a61dc7d4b96cc892f2f7ec0" },
+    "VAULT_LENS": { "name": "VaultLens", "runtimeCodeHash": "0xd0bd378d20f75e8e75bac3f9812ac0a6dfed8bff5cf2511474f6a94a8bb73b71" },
+    "FEE_COLLECTOR": { "name": "FeeCollector", "runtimeCodeHash": "0xc0323a5e3cd8cf26eadd984c21924b9019657a5401e23cbd93039c5eeb2d7f9d" },
+    "NORMAL_LP_STRATEGY": { "name": "NormalLPStrategy", "runtimeCodeHash": "0x2e802a2f650f765211df3a18c96e31118c763ff71c716bfbdf5766756b98ef29" },
+    "BUY_THE_DIP_STRATEGY": { "name": "BuyTheDipStrategy", "runtimeCodeHash": "0x40e59187bb57f8553da22019b65156cf09a200964734ef5ca072a6d418f66827" },
+    "SELL_THE_PUMP_STRATEGY": { "name": "SellThePumpStrategy", "runtimeCodeHash": "0x9fc9992644818aa1dacb8e57342ddb8e953ede5a7ad9f5329b14d8dfff7cb250" },
+    "SWAP_EXECUTOR": { "name": "SwapExecutor", "runtimeCodeHash": "0xae8708300012e69476444ac5d02a5c66dd22c7d9a77c155b71eb42057e485cf5" },
+    "ZAP": { "name": "Zap", "runtimeCodeHash": "0xba5efea5afe0cf03f5bd6d600a3f730abc977c4337fb2b4d6d544d35e28d6e3a" }
   }
 }

@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import type { Address } from '../../../../packages/domain/src/types.js';
 import { loadManifest, type DeploymentManifest } from '../../../../packages/contracts/src/manifest.js';
 
@@ -20,9 +21,23 @@ export function parseDotEnv(source: string): Record<string, string> {
   }
   return values;
 }
-export function readEnvironment(file = '.env'): Record<string, string> {
-  const fromFile = existsSync(file) ? parseDotEnv(readFileSync(file, 'utf8')) : {};
-  return { ...fromFile, ...process.env } as Record<string, string>;
+export function readEnvironment(
+  projectDirectory = '.',
+  processValues: Record<string, string | undefined> = process.env,
+): Record<string, string> {
+  const nodeEnv = processValues.NODE_ENV ?? 'development';
+  const fromFiles: Record<string, string> = {};
+  // Local files are a development/test convenience. Deployment variables are the only production source.
+  if (nodeEnv !== 'production') {
+    for (const name of ['.env', `.env.${nodeEnv}`, '.env.local', `.env.${nodeEnv}.local`]) {
+      const path = resolve(projectDirectory, name);
+      if (existsSync(path)) Object.assign(fromFiles, parseDotEnv(readFileSync(path, 'utf8')));
+    }
+  }
+  const supplied = Object.fromEntries(
+    Object.entries(processValues).filter((entry): entry is [string, string] => entry[1] !== undefined),
+  );
+  return { ...fromFiles, ...supplied };
 }
 export const CONTRACT_KEYS = [
   'PRICE_GUARD',
@@ -44,6 +59,9 @@ export interface Config {
   host: string;
   port: number;
   chainId: 11155111;
+  blockchainMode: 'single-chain';
+  activeChainIds: readonly [11155111];
+  defaultChainId: 11155111;
   rpcUrl: string;
   rpcUrls: readonly string[];
   rpcTimeoutMs: number;
@@ -61,6 +79,10 @@ export interface Config {
   manifestVersion: string;
   contracts: Record<ContractKey, Address>;
   contractCodeHashes: Partial<Record<ContractKey, `0x${string}`>>;
+  manifest: DeploymentManifest;
+  logLevel: 'debug' | 'info' | 'warn' | 'error';
+  workerEnabled: boolean;
+  workerPollIntervalMs: number;
 }
 function required(env: Record<string, string>, key: string): string {
   const value = env[key];
@@ -103,7 +125,14 @@ export function loadConfig(
 ): Config {
   const nodeEnv = env.NODE_ENV ?? 'development';
   if (!['development', 'test', 'production'].includes(nodeEnv)) throw new Error('Invalid NODE_ENV');
-  const chainId = int(env, 'CHAIN_ID', 11155111, 11155111, 11155111) as 11155111;
+  const blockchainMode = env.BLOCKCHAIN_MODE ?? 'single-chain';
+  if (blockchainMode !== 'single-chain') throw new Error('Only single-chain mode is currently supported');
+  const activeChainIds = (env.ACTIVE_CHAIN_IDS ?? '11155111').split(',').map((value) => Number(value.trim()));
+  if (activeChainIds.length !== 1 || activeChainIds[0] !== 11155111)
+    throw new Error('Only Ethereum Sepolia (11155111) may be active');
+  const defaultChainId = int(env, 'DEFAULT_CHAIN_ID', 11155111, 11155111, 11155111) as 11155111;
+  const chainId = int(env, 'CHAIN_ID', defaultChainId, 11155111, 11155111) as 11155111;
+  if (chainId !== defaultChainId) throw new Error('CHAIN_ID must match DEFAULT_CHAIN_ID');
   const rpcUrls = (env.SEPOLIA_RPC_URLS ?? required(env, 'SEPOLIA_RPC_URL'))
     .split(',')
     .map((x) => x.trim())
@@ -123,13 +152,9 @@ export function loadConfig(
   const contracts = {} as Record<ContractKey, Address>;
   const contractCodeHashes: Partial<Record<ContractKey, `0x${string}`>> = {};
   for (const key of CONTRACT_KEYS) {
-    const address = manifest.contracts[key]?.address;
-    if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address))
-      throw new Error(`Missing manifest contract: ${key}`);
-    const legacyOverride = env[`CONTRACT_${key}`];
-    if (legacyOverride && legacyOverride.toLowerCase() !== address.toLowerCase())
-      throw new Error(`Environment/manifest address mismatch: CONTRACT_${key}`);
-    contracts[key] = address;
+    const address = required(env, `CONTRACT_${key}`);
+    if (!/^0x[a-fA-F0-9]{40}$/.test(address)) throw new Error(`Invalid contract address: CONTRACT_${key}`);
+    contracts[key] = address as Address;
     if (manifest.contracts[key]?.runtimeCodeHash)
       contractCodeHashes[key] = manifest.contracts[key].runtimeCodeHash;
   }
@@ -150,7 +175,11 @@ export function loadConfig(
     (nodeEnv === 'production' ? '' : (env.CORS_ALLOWED_ORIGINS ?? 'http://localhost:5173'));
   const corsAllowedOrigins = exactOrigins(originSource, nodeEnv === 'production');
   const internalApiKey = env.INTERNAL_API_KEY;
+  const logLevel = env.LOG_LEVEL ?? 'info';
+  if (!['debug', 'info', 'warn', 'error'].includes(logLevel)) throw new Error('Invalid LOG_LEVEL');
   if (nodeEnv === 'production') {
+    if (!env.DATABASE_URL || env.DATABASE_URL.includes('REPLACE_') || env.DATABASE_URL.includes('YOUR_'))
+      throw new Error('Missing production dependency configuration: DATABASE_URL');
     if (!env.REDIS_URL || env.REDIS_URL.includes('REPLACE_') || env.REDIS_URL.includes('YOUR_'))
       throw new Error('Missing production security configuration: REDIS_URL');
     if (corsAllowedOrigins.length === 0)
@@ -163,6 +192,9 @@ export function loadConfig(
     host: env.HOST ?? '127.0.0.1',
     port: int(env, 'PORT', 3000, 1, 65535),
     chainId,
+    blockchainMode,
+    activeChainIds: [11155111],
+    defaultChainId,
     rpcUrl,
     rpcUrls,
     rpcTimeoutMs: int(env, 'RPC_TIMEOUT_MS', 10000, 1000, 60000),
@@ -184,11 +216,18 @@ export function loadConfig(
     manifestVersion: manifest.manifestVersion,
     contracts,
     contractCodeHashes,
+    manifest,
+    logLevel: logLevel as Config['logLevel'],
+    workerEnabled: boolean(env, 'WORKER_ENABLED'),
+    workerPollIntervalMs: int(env, 'WORKER_POLL_INTERVAL_MS', 5000, 250, 300000),
   };
 }
 export function publicConfig(config: Config) {
   return {
     chainId: config.chainId,
+    activeChainIds: config.activeChainIds,
+    defaultChainId: config.defaultChainId,
+    blockchainMode: config.blockchainMode,
     manifestVersion: config.manifestVersion,
     contracts: config.contracts,
     confirmations: config.confirmations,

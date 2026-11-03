@@ -1,10 +1,15 @@
 ﻿import { checkPostgres, checkRedis } from '../../../packages/adapters/src/service-health.js';
-import { ContractReader } from '../../../packages/adapters/src/contract-reader.js';
 import { createServer } from 'node:http';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { loadConfig, publicConfig } from './config/env.js';
-import { JsonRpcHttpAdapter, SepoliaReadAdapter } from '../../../packages/adapters/src/sepolia-rpc.js';
 import { connectRedis, RedisCoordinationAdapter } from '../../../packages/adapters/src/redis-coordination.js';
+import {
+  ChainAwareContractReader,
+  ChainRegistry,
+  ContractRegistry,
+  RpcClientFactory,
+  UnsupportedChainError,
+} from '../../../packages/adapters/src/chain-registry.js';
 import { enforceSecurity, type RateLimiter } from './security.js';
 
 function header(value: string | string[] | undefined): string | undefined {
@@ -13,21 +18,50 @@ function header(value: string | string[] | undefined): string | undefined {
 
 async function start(): Promise<void> {
   const config = loadConfig();
-  const rpc = new JsonRpcHttpAdapter(config.rpcUrl, config.rpcTimeoutMs, config.rpcMaxRetries);
-  const chain = new SepoliaReadAdapter(rpc, config.confirmations, config.chainId);
-  const contractReader = new ContractReader(config.rpcUrls);
+  const levels = { debug: 10, info: 20, warn: 30, error: 40 } as const;
+  const log = (level: keyof typeof levels, event: string, detail: Record<string, unknown> = {}) => {
+    if (levels[level] < levels[config.logLevel]) return;
+    const line = JSON.stringify({ timestamp: new Date().toISOString(), level, event, ...detail });
+    if (level === 'error') console.error(line);
+    else console.log(line);
+  };
+  const chains = new ChainRegistry(
+    [
+      {
+        chainId: config.chainId,
+        name: 'Ethereum Sepolia',
+        enabled: true,
+        rpcUrls: config.rpcUrls,
+        rpcTimeoutMs: config.rpcTimeoutMs,
+        rpcMaxRetries: config.rpcMaxRetries,
+        confirmations: config.confirmations,
+        manifest: config.manifest,
+        contracts: config.contracts,
+        capabilities: {},
+      },
+    ],
+    config.defaultChainId,
+  );
+  const chain = new RpcClientFactory(chains).create(config.defaultChainId);
+  const contractReader = new ChainAwareContractReader(chains).reader(config.defaultChainId);
+  const contractRegistry = new ContractRegistry(chains);
   let limiter: RateLimiter | undefined;
+  let closeRedis: (() => Promise<void>) | undefined;
   if (config.redisUrl) {
     void connectRedis(config.redisUrl)
       .then((redis) => {
         limiter = new RedisCoordinationAdapter(redis);
+        closeRedis = async () => {
+          await redis.quit();
+        };
       })
       .catch(() => {
-        console.error('Redis security dependency unavailable');
+        log('error', 'redis_connection_unavailable');
       });
   }
-  const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
-    const path = (req.url ?? '').split('?')[0] ?? '';
+  const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
+    const requestUrl = new URL(req.url ?? '/', 'http://localhost');
+    const path = requestUrl.pathname;
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Referrer-Policy', 'no-referrer');
@@ -67,6 +101,14 @@ async function start(): Promise<void> {
       return;
     }
     try {
+      const requestedChain = requestUrl.searchParams.get('chainId');
+      if (requestedChain !== null && path.startsWith('/api/v1/')) {
+        if (!/^[1-9][0-9]*$/.test(requestedChain)) {
+          send(400, { error: 'INVALID_CHAIN_ID' });
+          return;
+        }
+        chains.resolve(Number(requestedChain));
+      }
       if (path === '/health/live') {
         send(200, { status: 'ok' });
         return;
@@ -134,9 +176,9 @@ async function start(): Promise<void> {
       if (path === '/api/v1/contracts/status') {
         await chain.verifyNetwork();
         const results = await Promise.all(
-          Object.entries(config.contracts).map(async ([name, address]) => ({
+          Object.keys(config.contracts).map(async (name) => ({
             name,
-            ...(await chain.inspect(address)),
+            ...(await chain.inspect(contractRegistry.resolve(config.defaultChainId, name))),
           })),
         );
         send(200, { chainId: config.chainId, contracts: results });
@@ -180,15 +222,50 @@ async function start(): Promise<void> {
       }
       send(404, { error: 'NOT_FOUND' });
     } catch (e) {
-      console.error('request failed', e instanceof Error ? e.name : 'unknown');
+      if (e instanceof UnsupportedChainError) {
+        send(400, { error: 'UNSUPPORTED_CHAIN' });
+        return;
+      }
+      log('error', 'request_failed', { errorType: e instanceof Error ? e.name : 'unknown' });
       send(503, { error: 'UPSTREAM_UNAVAILABLE' });
     }
+  };
+  const server = createServer((req: IncomingMessage, res: ServerResponse) => {
+    void handleRequest(req, res).catch((error: unknown) => {
+      log('error', 'request_handler_failed', {
+        errorType: error instanceof Error ? error.name : 'unknown',
+      });
+      if (!res.headersSent) {
+        res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: 'UPSTREAM_UNAVAILABLE' }));
+      } else if (!res.writableEnded) res.end();
+    });
   });
   server.requestTimeout = 10000;
   server.headersTimeout = 8000;
   server.listen(config.port, config.host, () =>
-    console.log(`VortexA API listening on ${config.host}:${config.port}`),
+    log('info', 'api_listening', { host: config.host, port: config.port, chainId: config.chainId }),
   );
+  let shuttingDown = false;
+  const shutdown = (signal: string) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    log('info', 'shutdown_started', { signal });
+    server.close(() => {
+      void (async () => {
+        try {
+          await closeRedis?.();
+          log('info', 'shutdown_complete');
+        } catch {
+          process.exitCode = 1;
+          log('error', 'shutdown_dependency_error');
+        }
+      })();
+    });
+    server.closeIdleConnections();
+  };
+  process.once('SIGTERM', () => shutdown('SIGTERM'));
+  process.once('SIGINT', () => shutdown('SIGINT'));
 }
 
 void start().catch((error: unknown) => {

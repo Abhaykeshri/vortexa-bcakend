@@ -7,7 +7,7 @@ import {
   assertStrategyShape,
 } from '../packages/domain/src/validation.js';
 import { DomainError } from '../packages/domain/src/errors.js';
-const addr = '0x145bf19548AbcDd5a0355596de00E4d8992a6B60' as const;
+const addr = `0x${'1'.repeat(40)}` as const;
 test('address and chain validation', () => {
   assert.equal(parseAddress(addr), addr);
   assert.equal(parseChainId(11155111), 11155111);

@@ -60,15 +60,18 @@ if not rpc_url:
 manifest = json.loads((ROOT / "packages/contracts/manifests/sepolia-v1.json").read_text())
 passed = 0
 with zipfile.ZipFile(ZIP_PATH) as artifacts:
-    for request_id, contract in enumerate(manifest["contracts"].values(), 1):
+    for request_id, (key, contract) in enumerate(manifest["contracts"].items(), 1):
         name = contract["name"]
+        address = env.get(f"CONTRACT_{key}", "").strip()
+        if len(address) != 42 or not address.startswith("0x"):
+            raise RuntimeError(f"CONTRACT_{key} is required")
         artifact = json.loads(artifacts.read(f"{name}.sol/{name}.json"))
         local_abi = json.loads(
             (ROOT / f"packages/adapters/abis/{name}.json").read_text(encoding="utf-8-sig")
         )
         expected = artifact["deployedBytecode"]["object"].removeprefix("0x").lower()
         references = artifact["deployedBytecode"].get("immutableReferences", {})
-        actual = rpc_code(rpc_url, contract["address"], request_id)
+        actual = rpc_code(rpc_url, address, request_id)
         ok = local_abi == artifact["abi"] and mask_immutables(actual, references) == mask_immutables(
             expected, references
         )

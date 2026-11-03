@@ -1,18 +1,22 @@
 ﻿import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { createPublicClient, fallback, http, getAddress, keccak256 } from 'viem';
-import { sepolia } from 'viem/chains';
+import { createPublicClient, defineChain, fallback, http, getAddress, keccak256 } from 'viem';
 import type { Abi, Address } from 'viem';
 
 export class ContractReader {
   private readonly client;
 
-  constructor(rpcUrl: string | readonly string[]) {
+  constructor(rpcUrl: string | readonly string[], chainId = 11155111) {
     const urls = typeof rpcUrl === 'string' ? [rpcUrl] : [...rpcUrl];
     const primary = urls[0];
     if (!primary) throw new Error('At least one RPC URL is required');
     this.client = createPublicClient({
-      chain: sepolia,
+      chain: defineChain({
+        id: chainId,
+        name: chainId === 11155111 ? 'Ethereum Sepolia' : `EVM ${chainId}`,
+        nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+        rpcUrls: { default: { http: urls } },
+      }),
       transport:
         urls.length === 1
           ? http(primary, { timeout: 10000, retryCount: 1 })

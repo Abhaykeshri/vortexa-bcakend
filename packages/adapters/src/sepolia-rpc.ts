@@ -1,4 +1,4 @@
-import type { Address } from '../../domain/src/types.js';
+import type { Address, ChainId } from '../../domain/src/types.js';
 import type { ChainStatePort } from '../../domain/src/ports.js';
 
 export interface RpcTransport {
@@ -75,11 +75,11 @@ function hexBigInt(value: unknown): bigint {
     throw new RpcError('Invalid RPC hex quantity');
   return BigInt(value);
 }
-export class SepoliaReadAdapter implements ChainStatePort {
+export class EvmChainReadAdapter implements ChainStatePort {
   constructor(
     private readonly rpc: RpcTransport,
     private readonly confirmations: number,
-    private readonly expectedChainId: 11155111,
+    private readonly expectedChainId: ChainId,
   ) {}
   async verifyNetwork(): Promise<void> {
     const id = hexBigInt(await this.rpc.request('eth_chainId'));
@@ -89,7 +89,7 @@ export class SepoliaReadAdapter implements ChainStatePort {
   async latestBlock(): Promise<bigint> {
     return hexBigInt(await this.rpc.request('eth_blockNumber'));
   }
-  async finalizedBlock(chainId: 11155111): Promise<bigint> {
+  async finalizedBlock(chainId: ChainId): Promise<bigint> {
     if (chainId !== this.expectedChainId) throw new RpcError('Unsupported chain');
     const latest = await this.latestBlock();
     return latest > BigInt(this.confirmations) ? latest - BigInt(this.confirmations) : 0n;
@@ -106,3 +106,6 @@ export class SepoliaReadAdapter implements ChainStatePort {
     return { address, deployed: code.length > 2, bytecodeLength: (code.length - 2) / 2 };
   }
 }
+
+// Backward-compatible name for existing Sepolia-only consumers.
+export class SepoliaReadAdapter extends EvmChainReadAdapter {}
