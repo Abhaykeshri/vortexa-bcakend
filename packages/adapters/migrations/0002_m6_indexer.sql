@@ -1,0 +1,11 @@
+ALTER TABLE headers ADD COLUMN IF NOT EXISTS block_timestamp timestamptz;
+ALTER TABLE raw_logs ADD COLUMN IF NOT EXISTS transaction_index integer NOT NULL DEFAULT 0 CHECK(transaction_index >= 0);
+ALTER TABLE raw_logs ADD COLUMN IF NOT EXISTS event_name text;
+ALTER TABLE raw_logs ADD COLUMN IF NOT EXISTS event_args jsonb;
+ALTER TABLE raw_logs ADD COLUMN IF NOT EXISTS finality text NOT NULL DEFAULT 'OBSERVED' CHECK(finality IN ('OBSERVED','CONFIRMED','FINALIZED'));
+CREATE UNIQUE INDEX IF NOT EXISTS headers_one_canonical_height_uq ON headers(chain_id,block_number) WHERE canonical=true;
+CREATE INDEX IF NOT EXISTS raw_logs_canonical_order_idx ON raw_logs(chain_id,canonical,block_number,transaction_index,log_index);
+CREATE TABLE IF NOT EXISTS reorg_journal (id bigserial PRIMARY KEY,chain_id bigint NOT NULL,consumer text NOT NULL,ancestor_block numeric(78,0) NOT NULL,ancestor_hash text NOT NULL,depth integer NOT NULL CHECK(depth>0),orphaned_hashes jsonb NOT NULL,status text NOT NULL CHECK(status IN ('RECOVERED','HALTED')),created_at timestamptz NOT NULL DEFAULT now());
+CREATE INDEX IF NOT EXISTS reorg_journal_chain_created_idx ON reorg_journal(chain_id,created_at);
+CREATE TABLE IF NOT EXISTS reconciliation_results (id bigserial PRIMARY KEY,chain_id bigint NOT NULL,consumer text NOT NULL,from_block numeric(78,0) NOT NULL,to_block numeric(78,0) NOT NULL,manifest_version text NOT NULL,passed boolean NOT NULL,detail jsonb NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS indexer_worker_state (chain_id bigint NOT NULL,consumer text NOT NULL,status text NOT NULL CHECK(status IN ('STARTING','RUNNING','DEGRADED','STOPPED')),last_success_at timestamptz,last_error text,updated_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(chain_id,consumer));

@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 export interface OutboxMessage {
   readonly id: string;
   readonly topic: string;
@@ -7,8 +9,14 @@ export interface OutboxMessage {
 
 export interface DurableOutboxPort {
   claimOutbox(owner: string, limit: number): Promise<readonly OutboxMessage[]>;
-  completeOutbox(id: string): Promise<void>;
-  failOutbox(id: string, error: string, maxAttempts: number, delaySeconds: number): Promise<void>;
+  completeOutbox(id: string, owner: string): Promise<void>;
+  failOutbox(
+    id: string,
+    owner: string,
+    error: string,
+    maxAttempts: number,
+    delaySeconds: number,
+  ): Promise<void>;
 }
 
 export interface NotificationPort {
@@ -23,24 +31,31 @@ export class OutboxWorker {
   ) {}
 
   async runOnce(owner: string, limit = 25): Promise<{ processed: number; failed: number }> {
-    const messages = await this.outbox.claimOutbox(owner, limit);
+    if (!/^[a-zA-Z0-9._-]{1,120}$/.test(owner)) throw new Error('Invalid outbox worker identity');
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100)
+      throw new Error('Invalid outbox batch size');
+    const claimOwner = `${owner}-${randomUUID()}`;
     let processed = 0;
     let failed = 0;
-    for (const message of messages) {
+    for (let index = 0; index < limit; index++) {
+      const [message] = await this.outbox.claimOutbox(claimOwner, 1);
+      if (!message) break;
       try {
         await this.notifications.publish(message.topic, message.payload);
-        await this.outbox.completeOutbox(message.id);
-        processed++;
       } catch (error) {
         const delay = Math.min(2 ** Math.min(message.attempts + 1, 10), 3600);
         await this.outbox.failOutbox(
           message.id,
+          claimOwner,
           error instanceof Error ? error.message : 'notification failure',
           this.maxAttempts,
           delay,
         );
         failed++;
+        continue;
       }
+      await this.outbox.completeOutbox(message.id, claimOwner);
+      processed++;
     }
     return { processed, failed };
   }

@@ -33,6 +33,7 @@ export class ContractReader {
     contractName: string,
     address: Address,
     functionName: string,
+    args: readonly unknown[] = [],
     blockNumber?: bigint,
   ): Promise<unknown> {
     const abi = this.loadAbi(contractName);
@@ -41,8 +42,14 @@ export class ContractReader {
       address: getAddress(address),
       abi,
       functionName,
+      args,
       ...(blockNumber === undefined ? {} : { blockNumber }),
     });
+  }
+  async blockHash(blockNumber: bigint): Promise<`0x${string}`> {
+    const block = await this.client.getBlock({ blockNumber });
+    if (!block.hash) throw new Error('Pinned block hash unavailable');
+    return block.hash;
   }
   async runtimeCodeHash(address: Address): Promise<`0x${string}`> {
     const code = await this.client.getCode({ address: getAddress(address) });

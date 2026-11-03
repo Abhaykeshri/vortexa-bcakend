@@ -92,3 +92,91 @@ export interface PortfolioSnapshot {
   readonly positions: readonly Position[];
   readonly asOfBlock: bigint;
 }
+
+export type ProjectionFinality = 'OBSERVED' | 'CONFIRMED' | 'FINALIZED';
+
+export interface VaultProjection {
+  readonly chainId: ChainId;
+  readonly address: Address;
+  readonly factoryAddress: Address;
+  readonly creator: Address;
+  readonly creationTransactionHash: `0x${string}`;
+  readonly creationBlock: bigint;
+  readonly poolId: `0x${string}`;
+  readonly strategy: Vault['strategy'];
+  readonly strategyContract: Address;
+  readonly shapeId: number | null;
+  readonly config: Readonly<Record<string, unknown>> | null;
+  readonly totalShares: bigint;
+  readonly totalAssets: bigint | null;
+  readonly totalAssets0: bigint | null;
+  readonly totalAssets1: bigint | null;
+  readonly accountingAvailable: boolean;
+  readonly finality: ProjectionFinality;
+  readonly indexedThroughBlock: bigint;
+  readonly indexedBlockHash: `0x${string}`;
+}
+
+export interface WalletVaultPosition {
+  readonly chainId: ChainId;
+  readonly vaultAddress: Address;
+  readonly walletAddress: Address;
+  readonly shares: bigint;
+  readonly amount0: bigint | null;
+  readonly amount1: bigint | null;
+  readonly accountingAvailable: boolean;
+  readonly finality: ProjectionFinality;
+  readonly asOfBlock: bigint;
+  readonly indexedBlockHash: `0x${string}`;
+}
+
+export interface VaultProjectionEvent extends ChainEvent {
+  readonly transactionIndex: number;
+  readonly eventArgs: Readonly<Record<string, unknown>> | null;
+}
+
+export interface ProjectionState {
+  readonly chainId: ChainId;
+  readonly generation: bigint;
+  readonly indexedThroughBlock: bigint;
+  readonly indexedBlockHash: `0x${string}`;
+  readonly finality: ProjectionFinality;
+}
+
+export interface VaultListCursor {
+  readonly creationBlock: bigint;
+  readonly address: Address;
+}
+
+export interface VaultEventCursor {
+  readonly blockNumber: bigint;
+  readonly transactionIndex: number;
+  readonly logIndex: number;
+}
+
+export interface PositionListCursor {
+  readonly vaultAddress: Address;
+}
+
+export interface PinnedVaultState {
+  readonly vaultAddress: Address;
+  readonly blockNumber: bigint;
+  readonly blockHash: `0x${string}`;
+  readonly strategyContract: Address;
+  readonly config: Readonly<Record<string, unknown>>;
+  readonly totalShares: bigint;
+  readonly totalAssets: bigint;
+  readonly totalAssets0: bigint | null;
+  readonly totalAssets1: bigint | null;
+  readonly accountingAvailable: boolean;
+}
+
+export interface PinnedWalletPosition {
+  readonly vaultAddress: Address;
+  readonly walletAddress: Address;
+  readonly blockNumber: bigint;
+  readonly shares: bigint;
+  readonly amount0: bigint | null;
+  readonly amount1: bigint | null;
+  readonly accountingAvailable: boolean;
+}

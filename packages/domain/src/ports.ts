@@ -5,9 +5,18 @@ import type {
   FeatureKey,
   FeatureStatus,
   Position,
+  PositionListCursor,
+  ProjectionState,
+  PinnedVaultState,
+  PinnedWalletPosition,
   TransactionIntent,
   UnsignedIntent,
   Vault,
+  VaultEventCursor,
+  VaultListCursor,
+  VaultProjection,
+  VaultProjectionEvent,
+  WalletVaultPosition,
 } from './types.js';
 export interface VaultReaderPort {
   getVault(chainId: ChainId, vault: Address): Promise<Vault | null>;
@@ -50,4 +59,51 @@ export interface LeasePort {
   acquire(key: string, owner: string, ttlMs: number): Promise<boolean>;
   renew(key: string, owner: string, ttlMs: number): Promise<boolean>;
   release(key: string, owner: string): Promise<boolean>;
+}
+
+export interface VaultCatalogRepositoryPort {
+  projectionState(chainId: ChainId): Promise<ProjectionState | null>;
+  listVaults(
+    chainId: ChainId,
+    snapshotBlock: bigint,
+    cursor: VaultListCursor | null,
+    limit: number,
+  ): Promise<readonly VaultProjection[]>;
+  findVault(chainId: ChainId, address: Address): Promise<VaultProjection | null>;
+  listVaultEvents(
+    chainId: ChainId,
+    vault: Address,
+    snapshotBlock: bigint,
+    cursor: VaultEventCursor | null,
+    limit: number,
+  ): Promise<readonly VaultProjectionEvent[]>;
+  listWalletPositions(
+    chainId: ChainId,
+    wallet: Address,
+    snapshotBlock: bigint,
+    cursor: PositionListCursor | null,
+    limit: number,
+  ): Promise<readonly WalletVaultPosition[]>;
+  listVaultHolders(chainId: ChainId, vault: Address): Promise<readonly WalletVaultPosition[]>;
+}
+
+export interface PinnedVaultStateReaderPort {
+  vaultState(chainId: ChainId, vault: Address, blockNumber: bigint): Promise<PinnedVaultState>;
+  walletPosition(
+    chainId: ChainId,
+    vault: Address,
+    wallet: Address,
+    blockNumber: bigint,
+  ): Promise<PinnedWalletPosition>;
+}
+
+export interface PinnedProjectionWriterPort {
+  savePinnedSnapshot(input: {
+    chainId: ChainId;
+    blockNumber: bigint;
+    blockHash: `0x${string}`;
+    finality: VaultProjection['finality'];
+    vaults: readonly PinnedVaultState[];
+    positions: readonly PinnedWalletPosition[];
+  }): Promise<void>;
 }

@@ -48,6 +48,17 @@ test('cache uses namespaced JSON and degrades to miss on outage', async () => {
   f.fail = true;
   assert.equal(await a.get('vault_1'), null);
 });
+test('M7 response cache keys preserve route/version/cursor/limit isolation', async () => {
+  const f = new FakeRedis();
+  const adapter = new RedisCoordinationAdapter(f);
+  const first = 'vaults.chain_11155111.filters_none.scope_public:v1.g1:start:25';
+  const second = 'vaults.chain_11155111.filters_none.scope_public:v1.g2:start:25';
+  await adapter.set(first, { generation: 1 }, 15);
+  await adapter.set(second, { generation: 2 }, 15);
+  assert.deepEqual(await adapter.get(first), { generation: 1 });
+  assert.deepEqual(await adapter.get(second), { generation: 2 });
+  await assert.rejects(() => adapter.set('unsafe:key', {}, 15), /Invalid response cache key/);
+});
 test('leases are owner safe and fail closed', async () => {
   const f = new FakeRedis();
   const a = new RedisCoordinationAdapter(f);
@@ -57,6 +68,12 @@ test('leases are owner safe and fail closed', async () => {
   f.fail = true;
   assert.equal(await a.acquire('job_2', 'worker_1', 1000), false);
 });
+test('lease owner tokens are unique for repeated worker starts', () => {
+  const first = RedisCoordinationAdapter.leaseOwner('indexer');
+  const second = RedisCoordinationAdapter.leaseOwner('indexer');
+  assert.notEqual(first, second);
+  assert.match(first, /^indexer-[0-9a-f-]{36}$/);
+});
 test('rate limit fails closed when Redis is unavailable', async () => {
   const f = new FakeRedis();
   const a = new RedisCoordinationAdapter(f);
@@ -64,4 +81,10 @@ test('rate limit fails closed when Redis is unavailable', async () => {
   assert.equal((await a.rateLimit('wallet_1', 1, 60)).allowed, false);
   f.fail = true;
   await assert.rejects(() => a.rateLimit('wallet_2', 1, 60), RedisUnavailableError);
+});
+test('notification publish failure propagates so the durable outbox can retry', async () => {
+  const f = new FakeRedis();
+  const adapter = new RedisCoordinationAdapter(f);
+  f.fail = true;
+  await assert.rejects(() => adapter.publish('vault.updated', {}), RedisUnavailableError);
 });

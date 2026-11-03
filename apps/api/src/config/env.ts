@@ -27,13 +27,10 @@ export function readEnvironment(
 ): Record<string, string> {
   const nodeEnv = processValues.NODE_ENV ?? 'development';
   const fromFiles: Record<string, string> = {};
-  // Local files are a development/test convenience. Deployment variables are the only production source.
-  if (nodeEnv !== 'production') {
-    for (const name of ['.env', `.env.${nodeEnv}`, '.env.local', `.env.${nodeEnv}.local`]) {
-      const path = resolve(projectDirectory, name);
-      if (existsSync(path)) Object.assign(fromFiles, parseDotEnv(readFileSync(path, 'utf8')));
-    }
-  }
+  // Only one local file is loaded; production configuration comes from the process environment.
+  const localPath = resolve(projectDirectory, '.env');
+  if (nodeEnv !== 'production' && existsSync(localPath))
+    Object.assign(fromFiles, parseDotEnv(readFileSync(localPath, 'utf8')));
   const supplied = Object.fromEntries(
     Object.entries(processValues).filter((entry): entry is [string, string] => entry[1] !== undefined),
   );
@@ -59,9 +56,6 @@ export interface Config {
   host: string;
   port: number;
   chainId: 11155111;
-  blockchainMode: 'single-chain';
-  activeChainIds: readonly [11155111];
-  defaultChainId: 11155111;
   rpcUrl: string;
   rpcUrls: readonly string[];
   rpcTimeoutMs: number;
@@ -73,16 +67,35 @@ export interface Config {
   internalApiKey?: string;
   trustProxy: boolean;
   rateLimitWindowSeconds: number;
+  globalRateLimit: number;
   networkRateLimit: number;
   chainRateLimit: number;
   contractStatusRateLimit: number;
+  m7ReadRateLimit: number;
+  m7EventRateLimit: number;
+  m7WalletRateLimit: number;
+  maxRequestBodyBytes: number;
+  m7PageDefault: number;
+  m7PageMax: number;
+  m7StaleAfterBlocks: number;
+  m7VaultListCacheTtlSeconds: number;
+  m7VaultDetailCacheTtlSeconds: number;
+  m7VaultEventsCacheTtlSeconds: number;
+  m7PositionsCacheTtlSeconds: number;
   manifestVersion: string;
   contracts: Record<ContractKey, Address>;
   contractCodeHashes: Partial<Record<ContractKey, `0x${string}`>>;
   manifest: DeploymentManifest;
   logLevel: 'debug' | 'info' | 'warn' | 'error';
-  workerEnabled: boolean;
-  workerPollIntervalMs: number;
+  indexerEnabled: boolean;
+  indexerChainId?: 11155111;
+  indexerStartBlock?: bigint;
+  indexerBatchSize?: number;
+  indexerHeaderConcurrency?: number;
+  indexerPollIntervalMs?: number;
+  indexerConfirmations?: number;
+  indexerMaxReorgDepth?: number;
+  indexerWorkerId?: string;
 }
 function required(env: Record<string, string>, key: string): string {
   const value = env[key];
@@ -125,14 +138,7 @@ export function loadConfig(
 ): Config {
   const nodeEnv = env.NODE_ENV ?? 'development';
   if (!['development', 'test', 'production'].includes(nodeEnv)) throw new Error('Invalid NODE_ENV');
-  const blockchainMode = env.BLOCKCHAIN_MODE ?? 'single-chain';
-  if (blockchainMode !== 'single-chain') throw new Error('Only single-chain mode is currently supported');
-  const activeChainIds = (env.ACTIVE_CHAIN_IDS ?? '11155111').split(',').map((value) => Number(value.trim()));
-  if (activeChainIds.length !== 1 || activeChainIds[0] !== 11155111)
-    throw new Error('Only Ethereum Sepolia (11155111) may be active');
-  const defaultChainId = int(env, 'DEFAULT_CHAIN_ID', 11155111, 11155111, 11155111) as 11155111;
-  const chainId = int(env, 'CHAIN_ID', defaultChainId, 11155111, 11155111) as 11155111;
-  if (chainId !== defaultChainId) throw new Error('CHAIN_ID must match DEFAULT_CHAIN_ID');
+  const chainId = int(env, 'ACTIVE_CHAIN_ID', 11155111, 11155111, 11155111) as 11155111;
   const rpcUrls = (env.SEPOLIA_RPC_URLS ?? required(env, 'SEPOLIA_RPC_URL'))
     .split(',')
     .map((x) => x.trim())
@@ -168,14 +174,14 @@ export function loadConfig(
         throw new Error('Invalid REDIS_URL');
     }
   }
-  const originVariable =
-    nodeEnv === 'production' ? 'CORS_ALLOWED_ORIGINS_PRODUCTION' : 'CORS_ALLOWED_ORIGINS_DEVELOPMENT';
-  const originSource =
-    env[originVariable] ??
-    (nodeEnv === 'production' ? '' : (env.CORS_ALLOWED_ORIGINS ?? 'http://localhost:5173'));
+  const originSource = env.CORS_ALLOWED_ORIGINS ?? (nodeEnv === 'production' ? '' : 'http://localhost:5173');
   const corsAllowedOrigins = exactOrigins(originSource, nodeEnv === 'production');
   const internalApiKey = env.INTERNAL_API_KEY;
   const logLevel = env.LOG_LEVEL ?? 'info';
+  const globalRateLimit = int(env, 'GLOBAL_RATE_LIMIT', 60, 1, 10000);
+  const m7PageDefault = int(env, 'M7_PAGE_DEFAULT', 25, 1, 100);
+  const m7PageMax = int(env, 'M7_PAGE_MAX', 50, 1, 100);
+  if (m7PageDefault > m7PageMax) throw new Error('M7_PAGE_DEFAULT must not exceed M7_PAGE_MAX');
   if (!['debug', 'info', 'warn', 'error'].includes(logLevel)) throw new Error('Invalid LOG_LEVEL');
   if (nodeEnv === 'production') {
     if (!env.DATABASE_URL || env.DATABASE_URL.includes('REPLACE_') || env.DATABASE_URL.includes('YOUR_'))
@@ -183,18 +189,46 @@ export function loadConfig(
     if (!env.REDIS_URL || env.REDIS_URL.includes('REPLACE_') || env.REDIS_URL.includes('YOUR_'))
       throw new Error('Missing production security configuration: REDIS_URL');
     if (corsAllowedOrigins.length === 0)
-      throw new Error('Missing production security configuration: CORS_ALLOWED_ORIGINS_PRODUCTION');
+      throw new Error('Missing production security configuration: CORS_ALLOWED_ORIGINS');
     if (!internalApiKey || internalApiKey.startsWith('REPLACE_') || internalApiKey.length < 32)
       throw new Error('Missing or weak production security configuration: INTERNAL_API_KEY');
+  }
+  const indexerEnabled = boolean(env, 'INDEXER_ENABLED');
+  let indexer: Pick<
+    Config,
+    | 'indexerChainId'
+    | 'indexerStartBlock'
+    | 'indexerBatchSize'
+    | 'indexerHeaderConcurrency'
+    | 'indexerPollIntervalMs'
+    | 'indexerConfirmations'
+    | 'indexerMaxReorgDepth'
+    | 'indexerWorkerId'
+  > = {};
+  if (indexerEnabled) {
+    const start = required(env, 'INDEXER_START_BLOCK');
+    if (!/^[0-9]+$/.test(start)) throw new Error('Invalid INDEXER_START_BLOCK');
+    const workerId = required(env, 'INDEXER_WORKER_ID');
+    if (!/^[a-zA-Z0-9._-]{1,80}$/.test(workerId)) throw new Error('Invalid INDEXER_WORKER_ID');
+    if (!env.INDEXER_CONFIRMATIONS || !env.INDEXER_MAX_REORG_DEPTH)
+      throw new Error('Indexer finality and recovery policies require explicit configuration');
+    if (!env.DATABASE_URL || !env.REDIS_URL) throw new Error('Indexer requires DATABASE_URL and REDIS_URL');
+    indexer = {
+      indexerChainId: chainId,
+      indexerStartBlock: BigInt(start),
+      indexerBatchSize: int(env, 'INDEXER_BATCH_SIZE', 500, 1, 5000),
+      indexerHeaderConcurrency: int(env, 'INDEXER_HEADER_CONCURRENCY', 10, 1, 50),
+      indexerPollIntervalMs: int(env, 'INDEXER_POLL_INTERVAL_MS', 12000, 1000, 300000),
+      indexerConfirmations: int(env, 'INDEXER_CONFIRMATIONS', 0, 1, 1000),
+      indexerMaxReorgDepth: int(env, 'INDEXER_MAX_REORG_DEPTH', 0, 1, 10000),
+      indexerWorkerId: workerId,
+    };
   }
   return {
     nodeEnv: nodeEnv as Config['nodeEnv'],
     host: env.HOST ?? '127.0.0.1',
     port: int(env, 'PORT', 3000, 1, 65535),
     chainId,
-    blockchainMode,
-    activeChainIds: [11155111],
-    defaultChainId,
     rpcUrl,
     rpcUrls,
     rpcTimeoutMs: int(env, 'RPC_TIMEOUT_MS', 10000, 1000, 60000),
@@ -210,24 +244,36 @@ export function loadConfig(
     ...(internalApiKey && !internalApiKey.startsWith('REPLACE_') ? { internalApiKey } : {}),
     trustProxy: boolean(env, 'TRUST_PROXY'),
     rateLimitWindowSeconds: int(env, 'RATE_LIMIT_WINDOW_SECONDS', 60, 1, 3600),
-    networkRateLimit: int(env, 'NETWORK_RATE_LIMIT', 60, 1, 10000),
-    chainRateLimit: int(env, 'CHAIN_RATE_LIMIT', 30, 1, 10000),
-    contractStatusRateLimit: int(env, 'CONTRACT_STATUS_RATE_LIMIT', 10, 1, 10000),
+    globalRateLimit,
+    networkRateLimit: globalRateLimit,
+    chainRateLimit: Math.min(globalRateLimit, 30),
+    contractStatusRateLimit: Math.min(globalRateLimit, 10),
+    m7ReadRateLimit: Math.min(globalRateLimit, int(env, 'M7_READ_RATE_LIMIT', 30, 1, 10000)),
+    m7EventRateLimit: Math.min(globalRateLimit, int(env, 'M7_EVENT_RATE_LIMIT', 15, 1, 10000)),
+    m7WalletRateLimit: Math.min(globalRateLimit, int(env, 'M7_WALLET_RATE_LIMIT', 20, 1, 10000)),
+    maxRequestBodyBytes: int(env, 'MAX_REQUEST_BODY_BYTES', 16384, 1024, 1048576),
+    m7PageDefault,
+    m7PageMax,
+    m7StaleAfterBlocks: int(env, 'M7_STALE_AFTER_BLOCKS', 25, 1, 10000),
+    m7VaultListCacheTtlSeconds: int(env, 'M7_VAULT_LIST_CACHE_TTL_SECONDS', 15, 1, 300),
+    m7VaultDetailCacheTtlSeconds: int(env, 'M7_VAULT_DETAIL_CACHE_TTL_SECONDS', 10, 1, 300),
+    m7VaultEventsCacheTtlSeconds: int(env, 'M7_VAULT_EVENTS_CACHE_TTL_SECONDS', 10, 1, 300),
+    m7PositionsCacheTtlSeconds: int(env, 'M7_POSITIONS_CACHE_TTL_SECONDS', 5, 1, 300),
     manifestVersion: manifest.manifestVersion,
     contracts,
     contractCodeHashes,
     manifest,
     logLevel: logLevel as Config['logLevel'],
-    workerEnabled: boolean(env, 'WORKER_ENABLED'),
-    workerPollIntervalMs: int(env, 'WORKER_POLL_INTERVAL_MS', 5000, 250, 300000),
+    indexerEnabled,
+    ...indexer,
   };
 }
 export function publicConfig(config: Config) {
   return {
     chainId: config.chainId,
-    activeChainIds: config.activeChainIds,
-    defaultChainId: config.defaultChainId,
-    blockchainMode: config.blockchainMode,
+    activeChainIds: [config.chainId],
+    defaultChainId: config.chainId,
+    blockchainMode: 'single-chain' as const,
     manifestVersion: config.manifestVersion,
     contracts: config.contracts,
     confirmations: config.confirmations,

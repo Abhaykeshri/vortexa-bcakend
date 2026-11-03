@@ -35,12 +35,12 @@ export class PostgresVaultRepository implements VaultRepositoryPort {
           chain_id: string;
           address: string;
           strategy: Vault['strategy'];
-          shape_id: number;
+          shape_id: number | null;
           owner_role: Vault['ownerRole'];
           as_of_block: string;
         }
       | undefined;
-    return row
+    return row && row.shape_id !== null
       ? {
           chainId: Number(row.chain_id) as ChainId,
           address: row.address as Address,
@@ -78,30 +78,30 @@ export class DurableWorkRepository {
     owner: string,
     limit = 25,
   ): Promise<readonly { id: string; topic: string; payload: unknown; attempts: number }[]> {
-    if (!owner || limit < 1 || limit > 100) throw new Error('Invalid outbox claim');
-    const client = await this.pool.connect();
-    try {
-      await client.query('BEGIN');
-      const result = await client.query<{ id: string; topic: string; payload: unknown; attempts: number }>(
-        `SELECT id,topic,payload,attempts FROM outbox
-        WHERE processed_at IS NULL AND dead_lettered_at IS NULL AND available_at <= now() ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT $1`,
-        [limit],
-      );
-      if (result.rows.length)
-        await client.query('UPDATE outbox SET attempts=attempts+1 WHERE id=ANY($1::uuid[])', [
-          result.rows.map((x) => x.id),
-        ]);
-      await client.query('COMMIT');
-      return result.rows;
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
-    }
+    if (!/^[a-zA-Z0-9._-]{1,160}$/.test(owner) || !Number.isSafeInteger(limit) || limit < 1 || limit > 100)
+      throw new Error('Invalid outbox claim');
+    const result = await this.pool.query<{ id: string; topic: string; payload: unknown; attempts: number }>(
+      `WITH candidates AS (
+         SELECT id FROM outbox
+         WHERE processed_at IS NULL AND dead_lettered_at IS NULL AND available_at <= now()
+           AND (claim_until IS NULL OR claim_until <= now())
+         ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT $1
+       )
+       UPDATE outbox AS o
+       SET attempts=o.attempts+1,claim_owner=$2,claim_until=now()+interval '5 minutes'
+       FROM candidates AS c WHERE o.id=c.id
+       RETURNING o.id,o.topic,o.payload,o.attempts-1 AS attempts`,
+      [limit, owner],
+    );
+    return result.rows;
   }
-  async completeOutbox(id: string): Promise<void> {
-    await this.pool.query('UPDATE outbox SET processed_at=now(),last_error=NULL WHERE id=$1', [id]);
+  async completeOutbox(id: string, owner: string): Promise<void> {
+    const result = await this.pool.query(
+      `UPDATE outbox SET processed_at=now(),last_error=NULL,claim_owner=NULL,claim_until=NULL
+       WHERE id=$1 AND claim_owner=$2 AND claim_until>now() AND processed_at IS NULL`,
+      [id, owner],
+    );
+    if (result.rowCount !== 1) throw new Error('Outbox claim lost before completion');
   }
   async retryOutbox(id: string, error: string, delaySeconds: number): Promise<void> {
     await this.pool.query(
@@ -109,16 +109,24 @@ export class DurableWorkRepository {
       [id, error.slice(0, 500), Math.max(1, Math.min(delaySeconds, 3600))],
     );
   }
-  async failOutbox(id: string, error: string, maxAttempts: number, delaySeconds: number): Promise<void> {
+  async failOutbox(
+    id: string,
+    owner: string,
+    error: string,
+    maxAttempts: number,
+    delaySeconds: number,
+  ): Promise<void> {
     if (!Number.isSafeInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 100)
       throw new Error('Invalid max attempts');
-    await this.pool.query(
+    const result = await this.pool.query(
       `UPDATE outbox SET last_error=$2,
        dead_lettered_at=CASE WHEN attempts >= $3 THEN now() ELSE dead_lettered_at END,
-       available_at=CASE WHEN attempts >= $3 THEN available_at ELSE now()+($4 * interval '1 second') END
-       WHERE id=$1 AND processed_at IS NULL`,
-      [id, error.slice(0, 500), maxAttempts, Math.max(1, Math.min(delaySeconds, 3600))],
+       available_at=CASE WHEN attempts >= $3 THEN available_at ELSE now()+($4 * interval '1 second') END,
+       claim_owner=NULL,claim_until=NULL
+       WHERE id=$1 AND claim_owner=$5 AND claim_until>now() AND processed_at IS NULL`,
+      [id, error.slice(0, 500), maxAttempts, Math.max(1, Math.min(delaySeconds, 3600)), owner],
     );
+    if (result.rowCount !== 1) throw new Error('Outbox claim lost before failure update');
   }
   async inTransaction<T>(work: (client: PoolClient) => Promise<T>): Promise<T> {
     const client = await this.pool.connect();

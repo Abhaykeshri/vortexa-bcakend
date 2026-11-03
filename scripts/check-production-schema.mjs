@@ -16,6 +16,17 @@ const expected = [
   'audit_events',
   'outbox',
   'keeper_jobs',
+  'reorg_journal',
+  'reconciliation_results',
+  'indexer_worker_state',
+  'm7_projection_state',
+  'm7_projection_events',
+];
+const expectedMigrations = [
+  '0001_m0_m5_foundation',
+  '0002_m6_indexer',
+  '0003_m5_outbox_m6_fencing',
+  '0004_m7_vault_catalog',
 ];
 const config = loadConfig();
 if (!config.databaseUrl) throw new Error('DATABASE_URL is required');
@@ -29,15 +40,17 @@ try {
   const names = new Set(tables.rows.map((row) => row.table_name));
   console.log(`Production schema tables present: ${names.size}/${expected.length}`);
   console.log(`Migration ledger present: ${names.has('vortexa_schema_migrations')}`);
+  let migrationVersions = [];
   if (names.has('vortexa_schema_migrations')) {
     const migrations = await pool.query(
       'SELECT version FROM public.vortexa_schema_migrations ORDER BY applied_at',
     );
-    console.log(
-      `Applied migration versions: ${migrations.rows.map((row) => row.version).join(',') || 'none'}`,
-    );
+    migrationVersions = migrations.rows.map((row) => row.version);
+    console.log(`Applied migration versions: ${migrationVersions.join(',') || 'none'}`);
   }
-  process.exitCode = names.size === expected.length ? 0 : 2;
+  const migrationsComplete = expectedMigrations.every((version) => migrationVersions.includes(version));
+  console.log(`Required migrations present: ${migrationsComplete}`);
+  process.exitCode = names.size === expected.length && migrationsComplete ? 0 : 2;
 } finally {
   await pool.end();
 }

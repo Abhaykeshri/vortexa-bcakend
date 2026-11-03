@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parseDotEnv, readEnvironment, loadConfig } from '../apps/api/src/config/env.js';
+import { parseDotEnv, readEnvironment, loadConfig, publicConfig } from '../apps/api/src/config/env.js';
 import type { DeploymentManifest } from '../packages/contracts/src/manifest.js';
 import {
   SepoliaReadAdapter,
@@ -33,7 +33,7 @@ const manifest = {
 } as DeploymentManifest;
 const env: Record<string, string> = {
   NODE_ENV: 'test',
-  CHAIN_ID: '11155111',
+  ACTIVE_CHAIN_ID: '11155111',
   SEPOLIA_RPC_URL: 'https://rpc.example.org',
   ...Object.fromEntries(Object.keys(manifest.contracts).map((key) => [`CONTRACT_${key}`, addr])),
 };
@@ -43,7 +43,7 @@ test('dotenv parser supports comments and quoted values', () => {
     JSON.stringify({ FOO: 'bar', X: 'hello' }),
   );
 });
-test('development environment precedence is process > environment local > local > environment > base', () => {
+test('environment loader reads only .env and lets process variables override it', () => {
   const directory = mkdtempSync(join(tmpdir(), 'vortexa-env-'));
   try {
     writeFileSync(join(directory, '.env'), 'VALUE=base\nBASE_ONLY=yes\n');
@@ -53,7 +53,7 @@ test('development environment precedence is process > environment local > local 
     const loaded = readEnvironment(directory, { NODE_ENV: 'test', VALUE: 'process' });
     assert.equal(loaded.VALUE, 'process');
     assert.equal(loaded.BASE_ONLY, 'yes');
-    assert.equal(readEnvironment(directory, { NODE_ENV: 'test' }).VALUE, 'environment-local');
+    assert.equal(readEnvironment(directory, { NODE_ENV: 'test' }).VALUE, 'base');
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
@@ -70,28 +70,85 @@ test('production environment ignores local files', () => {
 test('configuration accepts valid Sepolia deployment', () =>
   assert.equal(loadConfig(env, manifest).contracts.ZAP, addr));
 test('configuration rejects wrong chain', () =>
-  assert.throws(() => loadConfig({ ...env, CHAIN_ID: '1' }, manifest)));
-test('configuration enforces Sepolia-only single-chain runtime controls', () => {
-  assert.throws(() => loadConfig({ ...env, BLOCKCHAIN_MODE: 'multi-chain' }, manifest));
-  assert.throws(() => loadConfig({ ...env, ACTIVE_CHAIN_IDS: '11155111,1' }, manifest));
-  assert.throws(() => loadConfig({ ...env, DEFAULT_CHAIN_ID: '1' }, manifest));
-  const config = loadConfig(
-    {
-      ...env,
-      BLOCKCHAIN_MODE: 'single-chain',
-      ACTIVE_CHAIN_IDS: '11155111',
-      DEFAULT_CHAIN_ID: '11155111',
-    },
-    manifest,
+  assert.throws(() => loadConfig({ ...env, ACTIVE_CHAIN_ID: '1' }, manifest)));
+test('configuration accepts one active Sepolia chain ID', () => {
+  const config = loadConfig(env, manifest);
+  assert.equal(config.chainId, 11155111);
+  assert.deepEqual(publicConfig(config), {
+    chainId: 11155111,
+    activeChainIds: [11155111],
+    defaultChainId: 11155111,
+    blockchainMode: 'single-chain',
+    manifestVersion: 'test-v1',
+    contracts: config.contracts,
+    confirmations: 12,
+  });
+});
+test('one global rate limit retains stricter chain and contract endpoint caps', () => {
+  const config = loadConfig({ ...env, GLOBAL_RATE_LIMIT: '60' }, manifest);
+  assert.deepEqual(
+    [config.networkRateLimit, config.chainRateLimit, config.contractStatusRateLimit],
+    [60, 30, 10],
   );
-  assert.deepEqual(config.activeChainIds, [11155111]);
+  const strictConfig = loadConfig({ ...env, GLOBAL_RATE_LIMIT: '5' }, manifest);
+  assert.deepEqual(
+    [strictConfig.networkRateLimit, strictConfig.chainRateLimit, strictConfig.contractStatusRateLimit],
+    [5, 5, 5],
+  );
 });
 test('configuration requires valid environment contract addresses', () => {
   assert.throws(() => loadConfig({ ...env, CONTRACT_ZAP: '' }, manifest));
   assert.throws(() => loadConfig({ ...env, CONTRACT_ZAP: 'not-an-address' }, manifest));
 });
+test('pagination, cache TTL, rate limits and multiple CORS origins are validated', () => {
+  const config = loadConfig(
+    {
+      ...env,
+      CORS_ALLOWED_ORIGINS: 'http://localhost:5173,http://127.0.0.1:5173',
+      M7_PAGE_DEFAULT: '20',
+      M7_PAGE_MAX: '40',
+      M7_VAULT_LIST_CACHE_TTL_SECONDS: '21',
+      M7_READ_RATE_LIMIT: '17',
+    },
+    manifest,
+  );
+  assert.deepEqual(config.corsAllowedOrigins, ['http://localhost:5173', 'http://127.0.0.1:5173']);
+  assert.equal(config.m7PageDefault, 20);
+  assert.equal(config.m7PageMax, 40);
+  assert.equal(config.m7VaultListCacheTtlSeconds, 21);
+  assert.equal(config.m7ReadRateLimit, 17);
+  assert.throws(() => loadConfig({ ...env, M7_PAGE_DEFAULT: '51', M7_PAGE_MAX: '50' }, manifest));
+  assert.throws(() => loadConfig({ ...env, M7_VAULT_LIST_CACHE_TTL_SECONDS: '0' }, manifest));
+  assert.throws(() => loadConfig({ ...env, M7_READ_RATE_LIMIT: '0' }, manifest));
+  assert.throws(() => loadConfig({ ...env, CORS_ALLOWED_ORIGINS: 'null' }, manifest));
+});
+test('PostgreSQL and Redis URL schemes fail closed', () => {
+  assert.throws(() => loadConfig({ ...env, DATABASE_URL: 'https://database.example' }, manifest));
+  assert.throws(() => loadConfig({ ...env, REDIS_URL: 'https://redis.example' }, manifest));
+});
 test('configuration rejects missing RPC', () =>
   assert.throws(() => loadConfig({ ...env, SEPOLIA_RPC_URL: '' }, manifest)));
+test('indexer configuration requires explicit finality, recovery, persistence and worker identity', () => {
+  assert.throws(() => loadConfig({ ...env, INDEXER_ENABLED: 'true' }, manifest));
+  const config = loadConfig(
+    {
+      ...env,
+      INDEXER_ENABLED: 'true',
+      INDEXER_START_BLOCK: '12032363',
+      INDEXER_BATCH_SIZE: '500',
+      INDEXER_POLL_INTERVAL_MS: '12000',
+      INDEXER_CONFIRMATIONS: '12',
+      INDEXER_MAX_REORG_DEPTH: '64',
+      INDEXER_WORKER_ID: 'test-indexer-1',
+      DATABASE_URL: 'postgresql://database.example/vortexa',
+      REDIS_URL: 'redis://redis.example',
+    },
+    manifest,
+  );
+  assert.equal(config.indexerChainId, config.chainId);
+  assert.equal(config.indexerStartBlock, 12032363n);
+  assert.equal(config.indexerMaxReorgDepth, 64);
+});
 test('read adapter verifies chain and deployed bytecode', async () => {
   const rpc = {
     request: async (method: string) =>
@@ -120,4 +177,30 @@ test('RPC failover uses a healthy secondary provider', async () => {
     { request: async () => '0xaa36a7' },
   ]);
   assert.equal(await rpc.request('eth_chainId'), '0xaa36a7');
+});
+test('RPC adapter rejects malformed responses, provider limits and bounded timeouts', async () => {
+  const malformed = new JsonRpcHttpAdapter(
+    'https://example.org',
+    100,
+    0,
+    async () => new Response('null', { status: 200 }),
+  );
+  await assert.rejects(() => malformed.request('eth_chainId'), /RPC unavailable/);
+  const limited = new JsonRpcHttpAdapter(
+    'https://example.org',
+    100,
+    0,
+    async () => new Response('rate limited', { status: 429 }),
+  );
+  await assert.rejects(() => limited.request('eth_chainId'), /RPC unavailable/);
+  const timeout = new JsonRpcHttpAdapter(
+    'https://example.org',
+    10,
+    0,
+    async (_url, init) =>
+      await new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+      }),
+  );
+  await assert.rejects(() => timeout.request('eth_chainId'), /RPC unavailable/);
 });

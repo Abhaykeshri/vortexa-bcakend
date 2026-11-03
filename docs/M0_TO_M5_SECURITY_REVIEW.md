@@ -1,6 +1,6 @@
 # M0-M5 security review
 
-Date: 2026-11-02. Scope is the backend M0-M5 foundation; it is not an independent audit.
+Date: 2026-11-02. Scope is the backend M0-M5 foundation; it is not an independent audit. Repository-status correction recorded 2026-11-03.
 
 ## Controls verified
 
@@ -18,9 +18,9 @@ Date: 2026-11-02. Scope is the backend M0-M5 foundation; it is not an independen
 ## Findings
 
 1. High operational: credential-like values were committed in `.env.example`. Fixed in this session; rotation remains mandatory because removal does not invalidate exposed credentials.
-2. Medium assurance: no backend Git repository/history exists, preventing provenance, reviewed-commit and clean-clone evidence.
+2. Medium assurance: a Git repository, remote, and commit history exist. The current worktree has uncommitted changes, and clean-clone CI plus reviewed release-commit evidence remain unverified.
 3. Medium M4: backup/PITR restore and approved production migration are unverified.
-4. Medium M5: no managed Redis restart/worker retry/dead-letter end-to-end drill; M6 worker/indexer is not yet implemented.
+4. Medium M5/M6: no managed Redis restart/worker retry/dead-letter end-to-end drill or full live indexer/reorg recovery evidence.
 5. Informational API: no mutation payload exists in M0-M5; SIWE, CSRF and mutation rate middleware belong to M8. The current read API enforces headers, CORS allowlisting, method denial and upstream redaction.
 
 Contract and PostgreSQL state are authoritative; Redis is never authoritative. Environment variables supply deployment addresses, while the selected manifest independently pins expected runtime hashes. Unsupported contract features fail closed. Any future signer must remain outside the public API and is not authorized by this work.

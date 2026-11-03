@@ -1,6 +1,8 @@
 ﻿import { checkPostgres, checkRedis } from '../../../packages/adapters/src/service-health.js';
 import { createServer } from 'node:http';
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { randomUUID } from 'node:crypto';
+import pg from 'pg';
 import { loadConfig, publicConfig } from './config/env.js';
 import { connectRedis, RedisCoordinationAdapter } from '../../../packages/adapters/src/redis-coordination.js';
 import {
@@ -10,7 +12,18 @@ import {
   RpcClientFactory,
   UnsupportedChainError,
 } from '../../../packages/adapters/src/chain-registry.js';
-import { enforceSecurity, type RateLimiter } from './security.js';
+import {
+  enforceSecurity,
+  httpSecurityHeaders,
+  rateLimitClientId,
+  responseWithRequestId,
+  serializeJsonResponse,
+  validateContentLength,
+  type RateLimiter,
+} from './security.js';
+import { DrizzleM7VaultRepository } from '../../../packages/adapters/src/postgres/m7-repository.js';
+import { M7QueryService } from '../../../packages/application/src/m7-queries.js';
+import { handleM7HttpRequest } from './m7-http.js';
 
 function header(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -40,17 +53,27 @@ async function start(): Promise<void> {
         capabilities: {},
       },
     ],
-    config.defaultChainId,
+    config.chainId,
   );
-  const chain = new RpcClientFactory(chains).create(config.defaultChainId);
-  const contractReader = new ChainAwareContractReader(chains).reader(config.defaultChainId);
+  const chain = new RpcClientFactory(chains).create(config.chainId);
+  const contractReader = new ChainAwareContractReader(chains).reader(config.chainId);
   const contractRegistry = new ContractRegistry(chains);
   let limiter: RateLimiter | undefined;
+  let responseCache: RedisCoordinationAdapter | undefined;
   let closeRedis: (() => Promise<void>) | undefined;
+  const postgresPool = config.databaseUrl
+    ? new pg.Pool({
+        connectionString: config.databaseUrl,
+        max: 4,
+        application_name: 'vortexa-api',
+      })
+    : undefined;
+  const m7Repository = postgresPool ? new DrizzleM7VaultRepository(postgresPool) : undefined;
   if (config.redisUrl) {
     void connectRedis(config.redisUrl)
       .then((redis) => {
-        limiter = new RedisCoordinationAdapter(redis);
+        responseCache = new RedisCoordinationAdapter(redis);
+        limiter = responseCache;
         closeRedis = async () => {
           await redis.quit();
         };
@@ -59,26 +82,35 @@ async function start(): Promise<void> {
         log('error', 'redis_connection_unavailable');
       });
   }
-  const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
+  const handleRequest = async (req: IncomingMessage, res: ServerResponse, requestId: string) => {
     const requestUrl = new URL(req.url ?? '/', 'http://localhost');
     const path = requestUrl.pathname;
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('X-Frame-Options', 'DENY');
-    res.setHeader('Referrer-Policy', 'no-referrer');
+    for (const [name, value] of Object.entries(httpSecurityHeaders(config.nodeEnv === 'production')))
+      res.setHeader(name, value);
     res.setHeader('Cache-Control', 'no-store');
-    res.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
     const send = (status: number, data: unknown) => {
       res.writeHead(status);
-      res.end(status === 204 ? undefined : JSON.stringify(data));
+      res.end(status === 204 ? undefined : serializeJsonResponse(responseWithRequestId(data, requestId)));
     };
+    try {
+      validateContentLength(header(req.headers['content-length']), config.maxRequestBodyBytes);
+    } catch (error) {
+      send(error instanceof Error && error.message === 'PAYLOAD_TOO_LARGE' ? 413 : 400, {
+        error:
+          error instanceof Error && error.message === 'PAYLOAD_TOO_LARGE'
+            ? 'PAYLOAD_TOO_LARGE'
+            : 'INVALID_CONTENT_LENGTH',
+      });
+      return;
+    }
     const directClient = req.socket.remoteAddress ?? 'unknown';
-    const forwardedClient = header(req.headers['x-forwarded-for'])?.split(',')[0]?.trim();
+    const forwardedFor = req.headers['x-forwarded-for'];
+    const forwardedClient = Array.isArray(forwardedFor) ? forwardedFor.join(',') : forwardedFor;
     const decision = await enforceSecurity(
       {
         method: req.method ?? 'GET',
         path,
-        clientId: config.trustProxy && forwardedClient ? forwardedClient : directClient,
+        clientId: rateLimitClientId(directClient, forwardedClient, config.trustProxy),
         ...(req.headers.origin ? { origin: req.headers.origin } : {}),
         ...(header(req.headers.authorization) ? { authorization: header(req.headers.authorization)! } : {}),
         ...(header(req.headers['access-control-request-method'])
@@ -178,7 +210,7 @@ async function start(): Promise<void> {
         const results = await Promise.all(
           Object.keys(config.contracts).map(async (name) => ({
             name,
-            ...(await chain.inspect(contractRegistry.resolve(config.defaultChainId, name))),
+            ...(await chain.inspect(contractRegistry.resolve(config.chainId, name))),
           })),
         );
         send(200, { chainId: config.chainId, contracts: results });
@@ -220,6 +252,29 @@ async function start(): Promise<void> {
         });
         return;
       }
+      if (path.startsWith('/api/v1/vaults') || path.startsWith('/api/v1/wallets/')) {
+        if (!m7Repository) {
+          send(503, { error: 'PROJECTION_UNAVAILABLE' });
+          return;
+        }
+        const m7 = await handleM7HttpRequest({
+          url: requestUrl,
+          path,
+          chainId: config.chainId,
+          service: new M7QueryService(m7Repository, chain, responseCache, config.m7StaleAfterBlocks, {
+            vaults: config.m7VaultListCacheTtlSeconds,
+            detail: config.m7VaultDetailCacheTtlSeconds,
+            events: config.m7VaultEventsCacheTtlSeconds,
+            positions: config.m7PositionsCacheTtlSeconds,
+          }),
+          defaultLimit: config.m7PageDefault,
+          maxLimit: config.m7PageMax,
+        });
+        if (m7) {
+          send(m7.status, m7.body);
+          return;
+        }
+      }
       send(404, { error: 'NOT_FOUND' });
     } catch (e) {
       if (e instanceof UnsupportedChainError) {
@@ -231,13 +286,15 @@ async function start(): Promise<void> {
     }
   };
   const server = createServer((req: IncomingMessage, res: ServerResponse) => {
-    void handleRequest(req, res).catch((error: unknown) => {
+    const requestId = randomUUID();
+    res.setHeader('X-Request-Id', requestId);
+    void handleRequest(req, res, requestId).catch((error: unknown) => {
       log('error', 'request_handler_failed', {
         errorType: error instanceof Error ? error.name : 'unknown',
       });
       if (!res.headersSent) {
         res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify({ error: 'UPSTREAM_UNAVAILABLE' }));
+        res.end(serializeJsonResponse(responseWithRequestId({ error: 'UPSTREAM_UNAVAILABLE' }, requestId)));
       } else if (!res.writableEnded) res.end();
     });
   });
@@ -255,6 +312,7 @@ async function start(): Promise<void> {
       void (async () => {
         try {
           await closeRedis?.();
+          await postgresPool?.end();
           log('info', 'shutdown_complete');
         } catch {
           process.exitCode = 1;

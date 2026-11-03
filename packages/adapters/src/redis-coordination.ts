@@ -34,9 +34,23 @@ export class RedisCoordinationAdapter implements CachePort, LeasePort {
   private key(kind: string, value: string): string {
     return `${this.namespace}:${safeSegment(kind)}:${safeSegment(value)}`;
   }
+  private cacheKey(value: string): string {
+    if (/^[a-zA-Z0-9._-]{1,160}$/.test(value)) return `${this.namespace}:cache:${value}`;
+    const parts = value.split(':');
+    if (
+      parts.length !== 4 ||
+      !/^[a-z0-9._-]{1,512}$/.test(parts[0]!) ||
+      !/^v[0-9]+\.g[0-9]+$/.test(parts[1]!) ||
+      !/^(?:start|[A-Za-z0-9_-]{1,2048})$/.test(parts[2]!) ||
+      !/^(?:[1-9]|[1-9][0-9]|100)$/.test(parts[3]!)
+    )
+      throw new Error('Invalid response cache key');
+    return `${this.namespace}:cache:${value}`;
+  }
   async get<T>(key: string): Promise<T | null> {
+    const redisKey = this.cacheKey(key);
     try {
-      const value = await this.redis.get(this.key('cache', key));
+      const value = await this.redis.get(redisKey);
       return value === null ? null : (JSON.parse(value) as T);
     } catch {
       return null;
@@ -45,15 +59,17 @@ export class RedisCoordinationAdapter implements CachePort, LeasePort {
   async set<T>(key: string, value: T, ttlSeconds: number): Promise<void> {
     if (!Number.isSafeInteger(ttlSeconds) || ttlSeconds < 1 || ttlSeconds > 86400)
       throw new Error('Invalid cache TTL');
+    const redisKey = this.cacheKey(key);
     try {
-      await this.redis.set(this.key('cache', key), JSON.stringify(value), { EX: ttlSeconds });
+      await this.redis.set(redisKey, JSON.stringify(value), { EX: ttlSeconds });
     } catch {
       /* cache is optional */
     }
   }
   async delete(key: string): Promise<void> {
+    const redisKey = this.cacheKey(key);
     try {
-      await this.redis.del(this.key('cache', key));
+      await this.redis.del(redisKey);
     } catch {
       /* cache is optional */
     }
@@ -118,7 +134,7 @@ export class RedisCoordinationAdapter implements CachePort, LeasePort {
     try {
       await this.redis.publish(this.key('notify', topic), JSON.stringify(payload));
     } catch {
-      /* durable outbox remains authoritative */
+      throw new RedisUnavailableError();
     }
   }
   static leaseOwner(prefix = 'worker'): string {

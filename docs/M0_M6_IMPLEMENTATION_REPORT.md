@@ -1,38 +1,33 @@
-# M0–M6 implementation report
+# M0-M6 implementation report
 
-Date: 2026-11-03. Scope: repository `vortexa-bcakend` plus read-only comparison with the local Solidity repository. No production deployment, shared-schema migration, credential rotation, Redis flush/restart, contract change, or transaction broadcast was performed.
+Updated: 2026-11-03. M5/M6 code fixes were followed by isolated staging verification. Migration `0003` was applied only to the user-confirmed staging database; production data, services and credentials were not changed.
 
-## Milestone summary
+## Milestone assessment
 
-| Milestone | Implementation | Tests | Documentation | Status |
-|---|---|---|---|---|
-| M0 | Architecture, boundaries, environment policy, risks and gates | Boundary, secret and configuration checks | This report, security review, readiness checklist | PARTIAL — external approvals open |
-| M1 | Node 22 strict TypeScript API, configuration, errors, headers, CI, Railway binding | Typecheck, lint, format, build, API security | README and deployment guide | IMPLEMENTED / VERIFIED LOCALLY |
-| M2 | Domain types, ports, validation, use cases and mocks | Domain/use-case suite | README | IMPLEMENTED / VERIFIED |
-| M3 | Chain-aware registries/factory/readers, manifest, 12 ABIs, safe RPC fallback | Mocked errors, 12/12 artifacts, 56/56 live Sepolia | Multichain document | IMPLEMENTED / VERIFIED READ-ONLY |
-| M4 | 14 database objects, ledger, repositories, transactions, chain-aware keys | Isolated migration, constraints, concurrency, rollback | README/readiness guide | IMPLEMENTED / ISOLATED VERIFIED |
-| M5 | Redis cache/rates/leases/notifications, durable outbox/retry/DLQ | Unit and isolated TTL/lease/reconnect checks | README/readiness guide | IMPLEMENTED / ISOLATED VERIFIED |
-| M6 | No authoritative backend specification found | No acceptance criteria available | Blocker recorded | BLOCKED |
+| Milestone | Implementation and evidence | Status |
+|---|---|---|
+| M0 | Architecture, threat/risk notes and release gates are documented; named owners and formal approvals are external. | PARTIAL |
+| M1 | Strict Node 22 TypeScript build, API security, config, lint/format and CI gates; current full-suite evidence is in `M0_M6_TEST_REPORT.md`. | PASS locally; release evidence pending |
+| M2 | Domain types, ports, use cases, validation and deterministic tests. | PASS |
+| M3 | Sepolia-only runtime with multichain-ready registries, 12-contract manifest/ABIs and read-only verification; latest live audit check was 56/56. | PASS read-only |
+| M4 | PostgreSQL schemas, repositories, checksummed transactional migrations and prior isolated staging verification. Production backup/restore and migration were not performed. | PARTIAL operationally |
+| M5 | Redis coordination, fail-closed rate limits, durable outbox and a separately runnable notification worker. Supervised staging worker recovered after a bounded local-proxy Redis connection interruption; managed Redis restart/failover remains open. | PARTIAL |
+| M6 | Bounded chain indexing, atomic cursor writes, finality/reorg recovery, replay and reconciliation. Staging verified SIGTERM/SIGINT restart/resume with STOPPED status and cleanup, a fixed-head synthetic depth-2 reorg, and 0-gap/0-duplicate reconciliation. Full historical backfill and deeper reorg coverage remain open; the precise prior RPC error was not reproduced. | PARTIAL |
 
-## Changes in this pass
+## Verified code-level fixes
 
-- Added `ChainRegistry`, `RpcClientFactory`, `ContractRegistry`, `ChainCapabilityRegistry`, `ChainAwareContractReader`, generic `EvmChainReadAdapter`, and chain-scoped key construction.
-- Moved all 12 deployment addresses to required `CONTRACT_*` environment variables and removed every deployment address from the tracked manifest and test fixtures. The manifest now pins address-independent contract names and runtime hashes.
-- Preserved `SepoliaReadAdapter` as a compatible name while removing Sepolia coupling from the underlying read adapter.
-- Enforced `BLOCKCHAIN_MODE=single-chain`, `ACTIVE_CHAIN_IDS=11155111`, and `DEFAULT_CHAIN_ID=11155111`; other or disabled chain requests fail closed.
-- Added optional `chainId` request validation without changing existing routes.
-- Added deterministic development/test environment precedence. Production ignores local files and requires PostgreSQL, Redis, an HTTPS origin allowlist, and a strong internal key.
-- Added validated logging and worker settings. The worker remains disabled by default; no transaction execution was introduced.
-- Made the contract reader accept a resolved EVM chain ID while the current registry registers only Sepolia.
-- Added targeted tests for disabled future chains, RPC mismatch, missing deployment, capability fallback, chain key isolation, runtime policy, and environment precedence.
-- Replaced milestone/readme claims with evidence from this run.
+- Outbox rows are atomically claimed in PostgreSQL with an expiring owner lease. Completion and retry/dead-letter updates require the current unexpired claim owner. The worker claims one message at a time to avoid expiring claims while queued.
+- Redis publish errors now propagate to the outbox so failed notifications are retried instead of being marked processed.
+- Added `apps/outbox` and `npm run outbox:start` as an independent polling worker with bounded retry delay and graceful signal handling.
+- Each indexer process uses a unique Redis lease token. PostgreSQL issues a monotonic fencing token, and every indexer batch, rollback and finality update locks and validates the current token before writing.
+- Replay verifies the RPC chain before opening the database or writing any indexed rows.
+- `eth_getLogs` range splitting handles recognized range/response-limit errors, including JSON-RPC `-32602`/`InvalidParamsRpcError`; irreducible errors preserve capped exponential retry/backoff, with safe operation/range/code diagnostics.
+- Graceful indexer SIGTERM/SIGINT writes fenced `STOPPED`; fatal errors write `DEGRADED`, and stale fencing owners cannot replace a newer worker's status.
+- When `TRUST_PROXY=true`, rate limiting uses the rightmost valid `X-Forwarded-For` IP, falling back to the socket peer if the value is malformed. The trusted ingress must append/overwrite the observed peer and the service must not be directly reachable.
+- Added migration `0003_m5_outbox_m6_fencing.sql` for outbox claim fields and the indexer fencing counter. Applied to the confirmed isolated staging target after checksum and schema preflight; not applied to production.
 
-## M6 discovery and blocker
+## Remaining release gates
 
-The backend contains no authoritative M6 roadmap or acceptance criteria. Its existing documents call M6 a future indexer and state that reorg-driven invalidation is deferred. The Solidity repository's `docs/spec.md` describes contract M6 swap execution and atomic rebalance, already represented by the deployed `SwapExecutor`/vault module. That is a different repository and does not specify backend endpoints, indexing ranges, reorg policy, data projections, service-level objectives, or authorization.
+Current-revision staging evidence is recorded in `M0_M6_TEST_REPORT.md` and `M6_TEST_REPORT.md`. The fixed-head staging reorg verifier passed without a moving-head race; indexer shutdown status and restart/resume passed for SIGTERM and SIGINT. Before production, verify managed Redis restart/failover, monitor RPC diagnostics, complete full historical backfill and deeper reorg recovery, production backup/restore and deployment smoke checks, credential-rotation confirmation, clean-checkout Node 22 CI, and named approvals.
 
-Accordingly, no backend M6 feature or API was invented. Required unblock: commit or provide the approved backend M6 specification and acceptance criteria. Then map each requirement to domain, adapter, persistence, API, authorization, recovery, and test work.
-
-## Acceptance assessment
-
-M1–M5 implementation is complete for the currently documented scope and verified as stated. M0 cannot be complete without named approvals. M6 cannot be complete without its specification. Production gates remain open, so the overall verdict is **PARTIAL**.
+Overall release verdict: **NOT PRODUCTION-APPROVED**.

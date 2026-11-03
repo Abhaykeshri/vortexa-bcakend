@@ -23,7 +23,7 @@ for (const [key, address] of Object.entries(config.contracts)) {
   const hash = await reader.runtimeCodeHash(address);
   check(`bytecode/hash ${key}`, same(hash, config.contractCodeHashes[key]));
 }
-const read = (key, name, getter) => reader.read(name, config.contracts[key], getter, block);
+const read = (key, name, getter) => reader.read(name, config.contracts[key], getter, [], block);
 const values = {
   factoryOwner: await read('VAULT_FACTORY', 'VaultFactory', 'owner'),
   guardian: await read('VAULT_FACTORY', 'VaultFactory', 'guardian'),

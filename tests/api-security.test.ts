@@ -1,7 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { loadConfig } from '../apps/api/src/config/env.js';
-import { enforceSecurity, type RateLimiter } from '../apps/api/src/security.js';
+import {
+  enforceSecurity,
+  csrfAllowsRequest,
+  httpSecurityHeaders,
+  rateLimitClientId,
+  responseWithRequestId,
+  serializeJsonResponse,
+  validateContentLength,
+  type RateLimiter,
+} from '../apps/api/src/security.js';
 import type { DeploymentManifest } from '../packages/contracts/src/manifest.js';
 
 const address = `0x${'1'.repeat(40)}` as const;
@@ -34,14 +43,61 @@ const config = loadConfig(
     NODE_ENV: 'test',
     ...contractEnvironment,
     SEPOLIA_RPC_URL: 'https://rpc.example.org',
-    CORS_ALLOWED_ORIGINS_DEVELOPMENT: 'http://localhost:5173,https://dev.example.org',
+    CORS_ALLOWED_ORIGINS: 'http://localhost:5173,https://dev.example.org',
     INTERNAL_API_KEY: secret,
-    NETWORK_RATE_LIMIT: '2',
-    CHAIN_RATE_LIMIT: '2',
-    CONTRACT_STATUS_RATE_LIMIT: '1',
+    GLOBAL_RATE_LIMIT: '60',
   },
   manifest,
 );
+
+test('HTTP security headers preserve the API CSP and add Helmet-compatible protections', () => {
+  const headers = httpSecurityHeaders(false);
+  assert.equal(headers['Content-Security-Policy'], "default-src 'none'; frame-ancestors 'none'");
+  assert.equal(headers['Cross-Origin-Opener-Policy'], 'same-origin');
+  assert.equal(headers['Cross-Origin-Resource-Policy'], 'same-origin');
+  assert.equal(headers['X-Content-Type-Options'], 'nosniff');
+  assert.equal(headers['X-Frame-Options'], 'DENY');
+  assert.equal(headers['X-XSS-Protection'], '0');
+  assert.equal(headers['Content-Type'], 'application/json; charset=utf-8');
+  assert.equal(headers['Strict-Transport-Security'], undefined);
+  assert.equal(httpSecurityHeaders(true)['Strict-Transport-Security'], 'max-age=31536000');
+});
+
+test('JSON responses preserve valid markup-like data without creating an HTML response', () => {
+  const payload = {
+    label: '<script>alert("x")</script>',
+    detail: 'A & B',
+  };
+  const body = serializeJsonResponse(payload);
+  assert.deepEqual(JSON.parse(body), payload);
+  assert.doesNotMatch(body, /<script>/);
+  assert.equal(httpSecurityHeaders(false)['Content-Type'], 'application/json; charset=utf-8');
+  assert.equal(httpSecurityHeaders(false)['X-Content-Type-Options'], 'nosniff');
+});
+
+test('responses carry a server-generated request ID without trusting arbitrary values', () => {
+  const requestId = '123e4567-e89b-42d3-a456-426614174000';
+  assert.deepEqual(responseWithRequestId({ status: 'ok' }, requestId), { status: 'ok', requestId });
+  assert.deepEqual(responseWithRequestId('ok', requestId), { data: 'ok', requestId });
+  assert.throws(() => responseWithRequestId({}, '<script>not-an-id</script>'), /Invalid request ID/);
+});
+
+test('payload limit and CSRF helpers fail closed only where the threat model applies', () => {
+  assert.equal(validateContentLength('1024', 1024), 1024);
+  assert.throws(() => validateContentLength('1025', 1024), /PAYLOAD_TOO_LARGE/);
+  assert.throws(() => validateContentLength('invalid', 1024), /INVALID_CONTENT_LENGTH/);
+  assert.equal(
+    csrfAllowsRequest({
+      method: 'POST',
+      cookieAuthenticated: true,
+      origin: 'https://evil.example',
+      allowedOrigins: ['https://app.example'],
+    }),
+    false,
+  );
+  assert.equal(csrfAllowsRequest({ method: 'GET', cookieAuthenticated: true, allowedOrigins: [] }), true);
+  assert.equal(csrfAllowsRequest({ method: 'POST', cookieAuthenticated: false, allowedOrigins: [] }), true);
+});
 
 class FakeLimiter implements RateLimiter {
   count = 0;
@@ -118,6 +174,18 @@ test('browser routes allow missing Origin for server clients and exact configure
     new FakeLimiter(),
   );
   assert.equal(withOrigin.headers['Access-Control-Allow-Origin'], 'http://localhost:5173');
+  assert.equal(withOrigin.headers['Access-Control-Allow-Credentials'], undefined);
+  const secondOrigin = await enforceSecurity(
+    {
+      method: 'GET',
+      path: '/api/v1/network',
+      origin: 'https://dev.example.org',
+      clientId: '127.0.0.3',
+    },
+    config,
+    new FakeLimiter(),
+  );
+  assert.equal(secondOrigin.headers['Access-Control-Allow-Origin'], 'https://dev.example.org');
 });
 
 test('disallowed origins and protected-route preflights are rejected', async () => {
@@ -132,6 +200,12 @@ test('disallowed origins and protected-route preflights are rejected', async () 
     new FakeLimiter(),
   );
   assert.equal(disallowed.status, 403);
+  const nullOrigin = await enforceSecurity(
+    { method: 'GET', path: '/api/v1/network', origin: 'null', clientId: '127.0.0.1' },
+    config,
+    new FakeLimiter(),
+  );
+  assert.equal(nullOrigin.status, 403);
 
   const protectedPreflight = await enforceSecurity(
     {
@@ -170,10 +244,54 @@ test('strict contract-status limit is enforced', async () => {
     path: '/api/v1/contracts/status',
     clientId: '203.0.113.10',
   };
-  assert.equal((await enforceSecurity(request, config, limiter)).handled, false);
+  for (let i = 0; i < config.contractStatusRateLimit; i++)
+    assert.equal((await enforceSecurity(request, config, limiter)).handled, false);
   const blocked = await enforceSecurity(request, config, limiter);
   assert.equal(blocked.status, 429);
   assert.equal(blocked.headers['Retry-After'], '60');
+});
+
+test('concurrent rate-limit requests cannot exceed the configured threshold', async () => {
+  const limiter = new FakeLimiter();
+  const request = { method: 'GET', path: '/api/v1/contracts/status', clientId: '203.0.113.11' };
+  const results = await Promise.all(
+    Array.from({ length: config.contractStatusRateLimit + 5 }, () =>
+      enforceSecurity(request, config, limiter),
+    ),
+  );
+  assert.equal(results.filter((result) => result.handled === false).length, config.contractStatusRateLimit);
+  assert.equal(results.filter((result) => result.status === 429).length, 5);
+});
+
+test('M7 dynamic routes are exact-origin protected and Redis rate limited before handlers', async () => {
+  const allowed = await enforceSecurity(
+    {
+      method: 'GET',
+      path: `/api/v1/vaults/${address}/events`,
+      origin: 'http://localhost:5173',
+      clientId: '203.0.113.20',
+    },
+    config,
+    new FakeLimiter(),
+  );
+  assert.equal(allowed.handled, false);
+  assert.equal(allowed.headers['RateLimit-Limit'], String(config.m7EventRateLimit));
+  const blockedOrigin = await enforceSecurity(
+    {
+      method: 'GET',
+      path: `/api/v1/wallets/${address}/positions`,
+      origin: 'https://evil.example',
+      clientId: '203.0.113.20',
+    },
+    config,
+    new FakeLimiter(),
+  );
+  assert.equal(blockedOrigin.status, 403);
+  const noRedis = await enforceSecurity(
+    { method: 'GET', path: '/api/v1/vaults/not-an-address', clientId: '203.0.113.20' },
+    config,
+  );
+  assert.equal(noRedis.status, 503);
 });
 
 test('rate-limited routes fail closed when Redis is missing or fails', async () => {
@@ -182,6 +300,12 @@ test('rate-limited routes fail closed when Redis is missing or fails', async () 
   const limiter = new FakeLimiter();
   limiter.fail = true;
   assert.equal((await enforceSecurity(request, config, limiter)).status, 503);
+});
+
+test('proxy rate-limit identity uses only the validated rightmost forwarded peer', () => {
+  assert.equal(rateLimitClientId('10.0.0.2', '198.51.100.10, 203.0.113.7', true), '203.0.113.7');
+  assert.equal(rateLimitClientId('10.0.0.2', '198.51.100.10, not-an-ip', true), '10.0.0.2');
+  assert.equal(rateLimitClientId('10.0.0.2', '198.51.100.10', false), '10.0.0.2');
 });
 
 test('production rejects missing security config and non-HTTPS origins', () => {
@@ -193,9 +317,9 @@ test('production rejects missing security config and non-HTTPS origins', () => {
     REDIS_URL: 'rediss://redis.example.org:6380',
     INTERNAL_API_KEY: secret,
   };
-  assert.throws(() => loadConfig(base, manifest), /CORS_ALLOWED_ORIGINS_PRODUCTION/);
+  assert.throws(() => loadConfig(base, manifest), /CORS_ALLOWED_ORIGINS/);
   assert.throws(
-    () => loadConfig({ ...base, CORS_ALLOWED_ORIGINS_PRODUCTION: 'http://app.example.org' }, manifest),
+    () => loadConfig({ ...base, CORS_ALLOWED_ORIGINS: 'http://app.example.org' }, manifest),
     /HTTPS/,
   );
 });
