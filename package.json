@@ -1,0 +1,51 @@
+{
+  "name": "vortexa-backend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b --pretty false",
+    "test": "npm run build && node scripts/run-tests.mjs",
+    "test:unit": "npm run build && node --test dist/tests/domain.test.js dist/tests/use-cases.test.js dist/tests/redis-coordination.test.js dist/tests/outbox-worker.test.js",
+    "test:integration": "npm run build && node --test dist/tests/config-m3.test.js dist/tests/postgres-repositories.test.js dist/tests/manifest-abi.test.js",
+    "test:security": "npm run build && node --test dist/tests/api-security.test.js dist/tests/redis-coordination.test.js",
+    "check": "npm run scan:secrets && npm run check:boundaries && npm run lint && npm run format:check && npm run typecheck && npm test",
+    "scan:secrets": "node scripts/scan-secrets.mjs",
+    "lint": "eslint . --max-warnings 0",
+    "format": "prettier --write \"apps/**/*.ts\" \"packages/**/*.ts\" \"tests/**/*.ts\" \"scripts/**/*.mjs\" \"*.mjs\" \"*.cjs\" \"eslint.config.js\" \"package.json\" \"tsconfig.json\" \".github/**/*.yml\"",
+    "format:check": "prettier --check \"apps/**/*.ts\" \"packages/**/*.ts\" \"tests/**/*.ts\" \"scripts/**/*.mjs\" \"*.mjs\" \"*.cjs\" \"eslint.config.js\" \"package.json\" \"tsconfig.json\" \".github/**/*.yml\"",
+    "check:boundaries": "node scripts/check-boundaries.mjs",
+    "migrate": "npm run build && node scripts/migrate.mjs up",
+    "migrate:down": "npm run build && node scripts/migrate.mjs down",
+    "verify:live:m4-m5": "npm run build && node scripts/verify-m4-m5-live.mjs",
+    "verify:live:m3": "npm run build && node verify-m3-wiring.mjs",
+    "verify:live:artifacts": "python scripts/verify-artifact-equivalence.py",
+    "verify:production:schema": "npm run build && node scripts/check-production-schema.mjs",
+    "clean": "tsc -b --clean",
+    "start": "node dist/apps/api/src/main.js",
+    "dev": "npm run build && npm run start"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^22.0.0",
+    "@types/pg": "^8.23.1",
+    "eslint": "^10.14.0",
+    "prettier": "^3.9.10",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.72.1"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.45.4",
+    "pg": "^8.23.1",
+    "redis": "^6.3.1",
+    "viem": "^2.57.14"
+  }
+}

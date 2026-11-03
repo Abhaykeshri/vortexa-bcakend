@@ -1,0 +1,177 @@
+﻿[
+    {
+        "type":  "function",
+        "name":  "computeBands",
+        "inputs":  [
+                       {
+                           "name":  "shapeId",
+                           "type":  "uint8",
+                           "internalType":  "uint8"
+                       },
+                       {
+                           "name":  "centerTick",
+                           "type":  "int24",
+                           "internalType":  "int24"
+                       },
+                       {
+                           "name":  "ticksLeft",
+                           "type":  "int24",
+                           "internalType":  "int24"
+                       },
+                       {
+                           "name":  "ticksRight",
+                           "type":  "int24",
+                           "internalType":  "int24"
+                       },
+                       {
+                           "name":  "tickSpacing",
+                           "type":  "int24",
+                           "internalType":  "int24"
+                       }
+                   ],
+        "outputs":  [
+                        {
+                            "name":  "bands",
+                            "type":  "tuple[]",
+                            "internalType":  "struct Band[]",
+                            "components":  [
+                                               {
+                                                   "name":  "tickLower",
+                                                   "type":  "int24",
+                                                   "internalType":  "int24"
+                                               },
+                                               {
+                                                   "name":  "tickUpper",
+                                                   "type":  "int24",
+                                                   "internalType":  "int24"
+                                               },
+                                               {
+                                                   "name":  "tokenId",
+                                                   "type":  "uint256",
+                                                   "internalType":  "uint256"
+                                               },
+                                               {
+                                                   "name":  "liquidity",
+                                                   "type":  "uint128",
+                                                   "internalType":  "uint128"
+                                               }
+                                           ]
+                        },
+                        {
+                            "name":  "weights",
+                            "type":  "uint16[]",
+                            "internalType":  "uint16[]"
+                        }
+                    ],
+        "stateMutability":  "pure"
+    },
+    {
+        "type":  "function",
+        "name":  "isValidShape",
+        "inputs":  [
+                       {
+                           "name":  "shapeId",
+                           "type":  "uint8",
+                           "internalType":  "uint8"
+                       }
+                   ],
+        "outputs":  [
+                        {
+                            "name":  "",
+                            "type":  "bool",
+                            "internalType":  "bool"
+                        }
+                    ],
+        "stateMutability":  "pure"
+    },
+    {
+        "type":  "function",
+        "name":  "maxBands",
+        "inputs":  [
+
+                   ],
+        "outputs":  [
+                        {
+                            "name":  "",
+                            "type":  "uint8",
+                            "internalType":  "uint8"
+                        }
+                    ],
+        "stateMutability":  "pure"
+    },
+    {
+        "type":  "error",
+        "name":  "EmptyRange",
+        "inputs":  [
+
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "InvalidInput",
+        "inputs":  [
+
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "InvalidShape",
+        "inputs":  [
+
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "SafeCastOverflowedIntDowncast",
+        "inputs":  [
+                       {
+                           "name":  "bits",
+                           "type":  "uint8",
+                           "internalType":  "uint8"
+                       },
+                       {
+                           "name":  "value",
+                           "type":  "int256",
+                           "internalType":  "int256"
+                       }
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "SafeCastOverflowedIntToUint",
+        "inputs":  [
+                       {
+                           "name":  "value",
+                           "type":  "int256",
+                           "internalType":  "int256"
+                       }
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "SafeCastOverflowedUintDowncast",
+        "inputs":  [
+                       {
+                           "name":  "bits",
+                           "type":  "uint8",
+                           "internalType":  "uint8"
+                       },
+                       {
+                           "name":  "value",
+                           "type":  "uint256",
+                           "internalType":  "uint256"
+                       }
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "SafeCastOverflowedUintToInt",
+        "inputs":  [
+                       {
+                           "name":  "value",
+                           "type":  "uint256",
+                           "internalType":  "uint256"
+                       }
+                   ]
+    }
+]

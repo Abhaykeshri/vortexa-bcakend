@@ -1,0 +1,897 @@
+﻿[
+    {
+        "type":  "constructor",
+        "inputs":  [
+                       {
+                           "name":  "shapes_",
+                           "type":  "address",
+                           "internalType":  "contract IShapeLibrary"
+                       }
+                   ],
+        "stateMutability":  "nonpayable"
+    },
+    {
+        "type":  "function",
+        "name":  "DRIFT",
+        "inputs":  [
+
+                   ],
+        "outputs":  [
+                        {
+                            "name":  "",
+                            "type":  "bytes32",
+                            "internalType":  "bytes32"
+                        }
+                    ],
+        "stateMutability":  "view"
+    },
+    {
+        "type":  "function",
+        "name":  "FILLED",
+        "inputs":  [
+
+                   ],
+        "outputs":  [
+                        {
+                            "name":  "",
+                            "type":  "bytes32",
+                            "internalType":  "bytes32"
+                        }
+                    ],
+        "stateMutability":  "view"
+    },
+    {
+        "type":  "function",
+        "name":  "NONE",
+        "inputs":  [
+
+                   ],
+        "outputs":  [
+                        {
+                            "name":  "",
+                            "type":  "bytes32",
+                            "internalType":  "bytes32"
+                        }
+                    ],
+        "stateMutability":  "view"
+    },
+    {
+        "type":  "function",
+        "name":  "OUT_OF_RANGE",
+        "inputs":  [
+
+                   ],
+        "outputs":  [
+                        {
+                            "name":  "",
+                            "type":  "bytes32",
+                            "internalType":  "bytes32"
+                        }
+                    ],
+        "stateMutability":  "view"
+    },
+    {
+        "type":  "function",
+        "name":  "TRAIL",
+        "inputs":  [
+
+                   ],
+        "outputs":  [
+                        {
+                            "name":  "",
+                            "type":  "bytes32",
+                            "internalType":  "bytes32"
+                        }
+                    ],
+        "stateMutability":  "view"
+    },
+    {
+        "type":  "function",
+        "name":  "canDeposit",
+        "inputs":  [
+                       {
+                           "name":  "",
+                           "type":  "tuple",
+                           "internalType":  "struct VaultConfig",
+                           "components":  [
+                                              {
+                                                  "name":  "poolKey",
+                                                  "type":  "tuple",
+                                                  "internalType":  "struct PoolKey",
+                                                  "components":  [
+                                                                     {
+                                                                         "name":  "currency0",
+                                                                         "type":  "address",
+                                                                         "internalType":  "Currency"
+                                                                     },
+                                                                     {
+                                                                         "name":  "currency1",
+                                                                         "type":  "address",
+                                                                         "internalType":  "Currency"
+                                                                     },
+                                                                     {
+                                                                         "name":  "fee",
+                                                                         "type":  "uint24",
+                                                                         "internalType":  "uint24"
+                                                                     },
+                                                                     {
+                                                                         "name":  "tickSpacing",
+                                                                         "type":  "int24",
+                                                                         "internalType":  "int24"
+                                                                     },
+                                                                     {
+                                                                         "name":  "hooks",
+                                                                         "type":  "address",
+                                                                         "internalType":  "address"
+                                                                     }
+                                                                 ]
+                                              },
+                                              {
+                                                  "name":  "strategy",
+                                                  "type":  "uint8",
+                                                  "internalType":  "enum Strategy"
+                                              },
+                                              {
+                                                  "name":  "shapeId",
+                                                  "type":  "uint8",
+                                                  "internalType":  "uint8"
+                                              },
+                                              {
+                                                  "name":  "centerTick",
+                                                  "type":  "int24",
+                                                  "internalType":  "int24"
+                                              },
+                                              {
+                                                  "name":  "ticksLeft",
+                                                  "type":  "int24",
+                                                  "internalType":  "int24"
+                                              },
+                                              {
+                                                  "name":  "ticksRight",
+                                                  "type":  "int24",
+                                                  "internalType":  "int24"
+                                              },
+                                              {
+                                                  "name":  "driftTicks",
+                                                  "type":  "uint24",
+                                                  "internalType":  "uint24"
+                                              },
+                                              {
+                                                  "name":  "trailTicks",
+                                                  "type":  "uint24",
+                                                  "internalType":  "uint24"
+                                              },
+                                              {
+                                                  "name":  "autoRebalance",
+                                                  "type":  "bool",
+                                                  "internalType":  "bool"
+                                              },
+                                              {
+                                                  "name":  "lockOnFill",
+                                                  "type":  "bool",
+                                                  "internalType":  "bool"
+                                              },
+                                              {
+                                                  "name":  "depositCap",
+                                                  "type":  "uint256",
+                                                  "internalType":  "uint256"
+                                              },
+                                              {
+                                                  "name":  "baseIsCurrency0",
+                                                  "type":  "bool",
+                                                  "internalType":  "bool"
+                                              }
+                                          ]
+                       },
+                       {
+                           "name":  "",
+                           "type":  "int24",
+                           "internalType":  "int24"
+                       },
+                       {
+                           "name":  "",
+                           "type":  "tuple[]",
+                           "internalType":  "struct Band[]",
+                           "components":  [
+                                              {
+                                                  "name":  "tickLower",
+                                                  "type":  "int24",
+                                                  "internalType":  "int24"
+                                              },
+                                              {
+                                                  "name":  "tickUpper",
+                                                  "type":  "int24",
+                                                  "internalType":  "int24"
+                                              },
+                                              {
+                                                  "name":  "tokenId",
+                                                  "type":  "uint256",
+                                                  "internalType":  "uint256"
+                                              },
+                                              {
+                                                  "name":  "liquidity",
+                                                  "type":  "uint128",
+                                                  "internalType":  "uint128"
+                                              }
+                                          ]
+                       }
+                   ],
+        "outputs":  [
+                        {
+                            "name":  "",
+                            "type":  "bool",
+                            "internalType":  "bool"
+                        }
+                    ],
+        "stateMutability":  "pure"
+    },
+    {
+        "type":  "function",
+        "name":  "checkTrigger",
+        "inputs":  [
+                       {
+                           "name":  "config",
+                           "type":  "tuple",
+                           "internalType":  "struct VaultConfig",
+                           "components":  [
+                                              {
+                                                  "name":  "poolKey",
+                                                  "type":  "tuple",
+                                                  "internalType":  "struct PoolKey",
+                                                  "components":  [
+                                                                     {
+                                                                         "name":  "currency0",
+                                                                         "type":  "address",
+                                                                         "internalType":  "Currency"
+                                                                     },
+                                                                     {
+                                                                         "name":  "currency1",
+                                                                         "type":  "address",
+                                                                         "internalType":  "Currency"
+                                                                     },
+                                                                     {
+                                                                         "name":  "fee",
+                                                                         "type":  "uint24",
+                                                                         "internalType":  "uint24"
+                                                                     },
+                                                                     {
+                                                                         "name":  "tickSpacing",
+                                                                         "type":  "int24",
+                                                                         "internalType":  "int24"
+                                                                     },
+                                                                     {
+                                                                         "name":  "hooks",
+                                                                         "type":  "address",
+                                                                         "internalType":  "address"
+                                                                     }
+                                                                 ]
+                                              },
+                                              {
+                                                  "name":  "strategy",
+                                                  "type":  "uint8",
+                                                  "internalType":  "enum Strategy"
+                                              },
+                                              {
+                                                  "name":  "shapeId",
+                                                  "type":  "uint8",
+                                                  "internalType":  "uint8"
+                                              },
+                                              {
+                                                  "name":  "centerTick",
+                                                  "type":  "int24",
+                                                  "internalType":  "int24"
+                                              },
+                                              {
+                                                  "name":  "ticksLeft",
+                                                  "type":  "int24",
+                                                  "internalType":  "int24"
+                                              },
+                                              {
+                                                  "name":  "ticksRight",
+                                                  "type":  "int24",
+                                                  "internalType":  "int24"
+                                              },
+                                              {
+                                                  "name":  "driftTicks",
+                                                  "type":  "uint24",
+                                                  "internalType":  "uint24"
+                                              },
+                                              {
+                                                  "name":  "trailTicks",
+                                                  "type":  "uint24",
+                                                  "internalType":  "uint24"
+                                              },
+                                              {
+                                                  "name":  "autoRebalance",
+                                                  "type":  "bool",
+                                                  "internalType":  "bool"
+                                              },
+                                              {
+                                                  "name":  "lockOnFill",
+                                                  "type":  "bool",
+                                                  "internalType":  "bool"
+                                              },
+                                              {
+                                                  "name":  "depositCap",
+                                                  "type":  "uint256",
+                                                  "internalType":  "uint256"
+                                              },
+                                              {
+                                                  "name":  "baseIsCurrency0",
+                                                  "type":  "bool",
+                                                  "internalType":  "bool"
+                                              }
+                                          ]
+                       },
+                       {
+                           "name":  "tick",
+                           "type":  "int24",
+                           "internalType":  "int24"
+                       },
+                       {
+                           "name":  "bands",
+                           "type":  "tuple[]",
+                           "internalType":  "struct Band[]",
+                           "components":  [
+                                              {
+                                                  "name":  "tickLower",
+                                                  "type":  "int24",
+                                                  "internalType":  "int24"
+                                              },
+                                              {
+                                                  "name":  "tickUpper",
+                                                  "type":  "int24",
+                                                  "internalType":  "int24"
+                                              },
+                                              {
+                                                  "name":  "tokenId",
+                                                  "type":  "uint256",
+                                                  "internalType":  "uint256"
+                                              },
+                                              {
+                                                  "name":  "liquidity",
+                                                  "type":  "uint128",
+                                                  "internalType":  "uint128"
+                                              }
+                                          ]
+                       }
+                   ],
+        "outputs":  [
+                        {
+                            "name":  "needed",
+                            "type":  "bool",
+                            "internalType":  "bool"
+                        },
+                        {
+                            "name":  "reason",
+                            "type":  "bytes32",
+                            "internalType":  "bytes32"
+                        }
+                    ],
+        "stateMutability":  "pure"
+    },
+    {
+        "type":  "function",
+        "name":  "depositMode",
+        "inputs":  [
+                       {
+                           "name":  "",
+                           "type":  "tuple",
+                           "internalType":  "struct VaultConfig",
+                           "components":  [
+                                              {
+                                                  "name":  "poolKey",
+                                                  "type":  "tuple",
+                                                  "internalType":  "struct PoolKey",
+                                                  "components":  [
+                                                                     {
+                                                                         "name":  "currency0",
+                                                                         "type":  "address",
+                                                                         "internalType":  "Currency"
+                                                                     },
+                                                                     {
+                                                                         "name":  "currency1",
+                                                                         "type":  "address",
+                                                                         "internalType":  "Currency"
+                                                                     },
+                                                                     {
+                                                                         "name":  "fee",
+                                                                         "type":  "uint24",
+                                                                         "internalType":  "uint24"
+                                                                     },
+                                                                     {
+                                                                         "name":  "tickSpacing",
+                                                                         "type":  "int24",
+                                                                         "internalType":  "int24"
+                                                                     },
+                                                                     {
+                                                                         "name":  "hooks",
+                                                                         "type":  "address",
+                                                                         "internalType":  "address"
+                                                                     }
+                                                                 ]
+                                              },
+                                              {
+                                                  "name":  "strategy",
+                                                  "type":  "uint8",
+                                                  "internalType":  "enum Strategy"
+                                              },
+                                              {
+                                                  "name":  "shapeId",
+                                                  "type":  "uint8",
+                                                  "internalType":  "uint8"
+                                              },
+                                              {
+                                                  "name":  "centerTick",
+                                                  "type":  "int24",
+                                                  "internalType":  "int24"
+                                              },
+                                              {
+                                                  "name":  "ticksLeft",
+                                                  "type":  "int24",
+                                                  "internalType":  "int24"
+                                              },
+                                              {
+                                                  "name":  "ticksRight",
+                                                  "type":  "int24",
+                                                  "internalType":  "int24"
+                                              },
+                                              {
+                                                  "name":  "driftTicks",
+                                                  "type":  "uint24",
+                                                  "internalType":  "uint24"
+                                              },
+                                              {
+                                                  "name":  "trailTicks",
+                                                  "type":  "uint24",
+                                                  "internalType":  "uint24"
+                                              },
+                                              {
+                                                  "name":  "autoRebalance",
+                                                  "type":  "bool",
+                                                  "internalType":  "bool"
+                                              },
+                                              {
+                                                  "name":  "lockOnFill",
+                                                  "type":  "bool",
+                                                  "internalType":  "bool"
+                                              },
+                                              {
+                                                  "name":  "depositCap",
+                                                  "type":  "uint256",
+                                                  "internalType":  "uint256"
+                                              },
+                                              {
+                                                  "name":  "baseIsCurrency0",
+                                                  "type":  "bool",
+                                                  "internalType":  "bool"
+                                              }
+                                          ]
+                       }
+                   ],
+        "outputs":  [
+                        {
+                            "name":  "",
+                            "type":  "uint8",
+                            "internalType":  "enum DepositMode"
+                        }
+                    ],
+        "stateMutability":  "pure"
+    },
+    {
+        "type":  "function",
+        "name":  "plan",
+        "inputs":  [
+                       {
+                           "name":  "config",
+                           "type":  "tuple",
+                           "internalType":  "struct VaultConfig",
+                           "components":  [
+                                              {
+                                                  "name":  "poolKey",
+                                                  "type":  "tuple",
+                                                  "internalType":  "struct PoolKey",
+                                                  "components":  [
+                                                                     {
+                                                                         "name":  "currency0",
+                                                                         "type":  "address",
+                                                                         "internalType":  "Currency"
+                                                                     },
+                                                                     {
+                                                                         "name":  "currency1",
+                                                                         "type":  "address",
+                                                                         "internalType":  "Currency"
+                                                                     },
+                                                                     {
+                                                                         "name":  "fee",
+                                                                         "type":  "uint24",
+                                                                         "internalType":  "uint24"
+                                                                     },
+                                                                     {
+                                                                         "name":  "tickSpacing",
+                                                                         "type":  "int24",
+                                                                         "internalType":  "int24"
+                                                                     },
+                                                                     {
+                                                                         "name":  "hooks",
+                                                                         "type":  "address",
+                                                                         "internalType":  "address"
+                                                                     }
+                                                                 ]
+                                              },
+                                              {
+                                                  "name":  "strategy",
+                                                  "type":  "uint8",
+                                                  "internalType":  "enum Strategy"
+                                              },
+                                              {
+                                                  "name":  "shapeId",
+                                                  "type":  "uint8",
+                                                  "internalType":  "uint8"
+                                              },
+                                              {
+                                                  "name":  "centerTick",
+                                                  "type":  "int24",
+                                                  "internalType":  "int24"
+                                              },
+                                              {
+                                                  "name":  "ticksLeft",
+                                                  "type":  "int24",
+                                                  "internalType":  "int24"
+                                              },
+                                              {
+                                                  "name":  "ticksRight",
+                                                  "type":  "int24",
+                                                  "internalType":  "int24"
+                                              },
+                                              {
+                                                  "name":  "driftTicks",
+                                                  "type":  "uint24",
+                                                  "internalType":  "uint24"
+                                              },
+                                              {
+                                                  "name":  "trailTicks",
+                                                  "type":  "uint24",
+                                                  "internalType":  "uint24"
+                                              },
+                                              {
+                                                  "name":  "autoRebalance",
+                                                  "type":  "bool",
+                                                  "internalType":  "bool"
+                                              },
+                                              {
+                                                  "name":  "lockOnFill",
+                                                  "type":  "bool",
+                                                  "internalType":  "bool"
+                                              },
+                                              {
+                                                  "name":  "depositCap",
+                                                  "type":  "uint256",
+                                                  "internalType":  "uint256"
+                                              },
+                                              {
+                                                  "name":  "baseIsCurrency0",
+                                                  "type":  "bool",
+                                                  "internalType":  "bool"
+                                              }
+                                          ]
+                       },
+                       {
+                           "name":  "",
+                           "type":  "int24",
+                           "internalType":  "int24"
+                       },
+                       {
+                           "name":  "newCenterTick",
+                           "type":  "int24",
+                           "internalType":  "int24"
+                       },
+                       {
+                           "name":  "sqrtPriceX96",
+                           "type":  "uint160",
+                           "internalType":  "uint160"
+                       },
+                       {
+                           "name":  "amount0",
+                           "type":  "uint256",
+                           "internalType":  "uint256"
+                       },
+                       {
+                           "name":  "amount1",
+                           "type":  "uint256",
+                           "internalType":  "uint256"
+                       },
+                       {
+                           "name":  "",
+                           "type":  "bytes32",
+                           "internalType":  "bytes32"
+                       }
+                   ],
+        "outputs":  [
+                        {
+                            "name":  "plan_",
+                            "type":  "tuple",
+                            "internalType":  "struct Plan",
+                            "components":  [
+                                               {
+                                                   "name":  "bands",
+                                                   "type":  "tuple[]",
+                                                   "internalType":  "struct Band[]",
+                                                   "components":  [
+                                                                      {
+                                                                          "name":  "tickLower",
+                                                                          "type":  "int24",
+                                                                          "internalType":  "int24"
+                                                                      },
+                                                                      {
+                                                                          "name":  "tickUpper",
+                                                                          "type":  "int24",
+                                                                          "internalType":  "int24"
+                                                                      },
+                                                                      {
+                                                                          "name":  "tokenId",
+                                                                          "type":  "uint256",
+                                                                          "internalType":  "uint256"
+                                                                      },
+                                                                      {
+                                                                          "name":  "liquidity",
+                                                                          "type":  "uint128",
+                                                                          "internalType":  "uint128"
+                                                                      }
+                                                                  ]
+                                               },
+                                               {
+                                                   "name":  "weightsBps",
+                                                   "type":  "uint16[]",
+                                                   "internalType":  "uint16[]"
+                                               },
+                                               {
+                                                   "name":  "needsSwap",
+                                                   "type":  "bool",
+                                                   "internalType":  "bool"
+                                               },
+                                               {
+                                                   "name":  "zeroForOne",
+                                                   "type":  "bool",
+                                                   "internalType":  "bool"
+                                               },
+                                               {
+                                                   "name":  "swapAmountIn",
+                                                   "type":  "uint256",
+                                                   "internalType":  "uint256"
+                                               },
+                                               {
+                                                   "name":  "lockIdle",
+                                                   "type":  "bool",
+                                                   "internalType":  "bool"
+                                               }
+                                           ]
+                        }
+                    ],
+        "stateMutability":  "view"
+    },
+    {
+        "type":  "function",
+        "name":  "shapes",
+        "inputs":  [
+
+                   ],
+        "outputs":  [
+                        {
+                            "name":  "",
+                            "type":  "address",
+                            "internalType":  "contract IShapeLibrary"
+                        }
+                    ],
+        "stateMutability":  "view"
+    },
+    {
+        "type":  "function",
+        "name":  "validateConfig",
+        "inputs":  [
+                       {
+                           "name":  "config",
+                           "type":  "tuple",
+                           "internalType":  "struct VaultConfig",
+                           "components":  [
+                                              {
+                                                  "name":  "poolKey",
+                                                  "type":  "tuple",
+                                                  "internalType":  "struct PoolKey",
+                                                  "components":  [
+                                                                     {
+                                                                         "name":  "currency0",
+                                                                         "type":  "address",
+                                                                         "internalType":  "Currency"
+                                                                     },
+                                                                     {
+                                                                         "name":  "currency1",
+                                                                         "type":  "address",
+                                                                         "internalType":  "Currency"
+                                                                     },
+                                                                     {
+                                                                         "name":  "fee",
+                                                                         "type":  "uint24",
+                                                                         "internalType":  "uint24"
+                                                                     },
+                                                                     {
+                                                                         "name":  "tickSpacing",
+                                                                         "type":  "int24",
+                                                                         "internalType":  "int24"
+                                                                     },
+                                                                     {
+                                                                         "name":  "hooks",
+                                                                         "type":  "address",
+                                                                         "internalType":  "address"
+                                                                     }
+                                                                 ]
+                                              },
+                                              {
+                                                  "name":  "strategy",
+                                                  "type":  "uint8",
+                                                  "internalType":  "enum Strategy"
+                                              },
+                                              {
+                                                  "name":  "shapeId",
+                                                  "type":  "uint8",
+                                                  "internalType":  "uint8"
+                                              },
+                                              {
+                                                  "name":  "centerTick",
+                                                  "type":  "int24",
+                                                  "internalType":  "int24"
+                                              },
+                                              {
+                                                  "name":  "ticksLeft",
+                                                  "type":  "int24",
+                                                  "internalType":  "int24"
+                                              },
+                                              {
+                                                  "name":  "ticksRight",
+                                                  "type":  "int24",
+                                                  "internalType":  "int24"
+                                              },
+                                              {
+                                                  "name":  "driftTicks",
+                                                  "type":  "uint24",
+                                                  "internalType":  "uint24"
+                                              },
+                                              {
+                                                  "name":  "trailTicks",
+                                                  "type":  "uint24",
+                                                  "internalType":  "uint24"
+                                              },
+                                              {
+                                                  "name":  "autoRebalance",
+                                                  "type":  "bool",
+                                                  "internalType":  "bool"
+                                              },
+                                              {
+                                                  "name":  "lockOnFill",
+                                                  "type":  "bool",
+                                                  "internalType":  "bool"
+                                              },
+                                              {
+                                                  "name":  "depositCap",
+                                                  "type":  "uint256",
+                                                  "internalType":  "uint256"
+                                              },
+                                              {
+                                                  "name":  "baseIsCurrency0",
+                                                  "type":  "bool",
+                                                  "internalType":  "bool"
+                                              }
+                                          ]
+                       },
+                       {
+                           "name":  "",
+                           "type":  "int24",
+                           "internalType":  "int24"
+                       }
+                   ],
+        "outputs":  [
+
+                    ],
+        "stateMutability":  "view"
+    },
+    {
+        "type":  "error",
+        "name":  "InvalidAnchor",
+        "inputs":  [
+
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "InvalidBands",
+        "inputs":  [
+
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "InvalidDrift",
+        "inputs":  [
+
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "InvalidPrice",
+        "inputs":  [
+
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "InvalidPriceRange",
+        "inputs":  [
+
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "InvalidRange",
+        "inputs":  [
+
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "InvalidRatio",
+        "inputs":  [
+
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "InvalidShape",
+        "inputs":  [
+
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "InvalidStrategy",
+        "inputs":  [
+
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "InvalidTick",
+        "inputs":  [
+
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "InvalidTrail",
+        "inputs":  [
+
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "SafeCastOverflowedUintDowncast",
+        "inputs":  [
+                       {
+                           "name":  "bits",
+                           "type":  "uint8",
+                           "internalType":  "uint8"
+                       },
+                       {
+                           "name":  "value",
+                           "type":  "uint256",
+                           "internalType":  "uint256"
+                       }
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "ZeroAddress",
+        "inputs":  [
+
+                   ]
+    }
+]

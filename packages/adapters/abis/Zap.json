@@ -1,0 +1,430 @@
+﻿[
+    {
+        "type":  "constructor",
+        "inputs":  [
+                       {
+                           "name":  "factory_",
+                           "type":  "address",
+                           "internalType":  "contract IZapFactory"
+                       },
+                       {
+                           "name":  "executor_",
+                           "type":  "address",
+                           "internalType":  "contract IZapSwapExecutor"
+                       },
+                       {
+                           "name":  "normalStrategy_",
+                           "type":  "address",
+                           "internalType":  "address"
+                       },
+                       {
+                           "name":  "buyTheDipStrategy_",
+                           "type":  "address",
+                           "internalType":  "address"
+                       },
+                       {
+                           "name":  "sellThePumpStrategy_",
+                           "type":  "address",
+                           "internalType":  "address"
+                       }
+                   ],
+        "stateMutability":  "nonpayable"
+    },
+    {
+        "type":  "receive",
+        "stateMutability":  "payable"
+    },
+    {
+        "type":  "function",
+        "name":  "buyTheDipStrategy",
+        "inputs":  [
+
+                   ],
+        "outputs":  [
+                        {
+                            "name":  "",
+                            "type":  "address",
+                            "internalType":  "address"
+                        }
+                    ],
+        "stateMutability":  "view"
+    },
+    {
+        "type":  "function",
+        "name":  "executor",
+        "inputs":  [
+
+                   ],
+        "outputs":  [
+                        {
+                            "name":  "",
+                            "type":  "address",
+                            "internalType":  "contract IZapSwapExecutor"
+                        }
+                    ],
+        "stateMutability":  "view"
+    },
+    {
+        "type":  "function",
+        "name":  "factory",
+        "inputs":  [
+
+                   ],
+        "outputs":  [
+                        {
+                            "name":  "",
+                            "type":  "address",
+                            "internalType":  "contract IZapFactory"
+                        }
+                    ],
+        "stateMutability":  "view"
+    },
+    {
+        "type":  "function",
+        "name":  "normalStrategy",
+        "inputs":  [
+
+                   ],
+        "outputs":  [
+                        {
+                            "name":  "",
+                            "type":  "address",
+                            "internalType":  "address"
+                        }
+                    ],
+        "stateMutability":  "view"
+    },
+    {
+        "type":  "function",
+        "name":  "quoteZap",
+        "inputs":  [
+                       {
+                           "name":  "vault",
+                           "type":  "address",
+                           "internalType":  "address"
+                       },
+                       {
+                           "name":  "tokenIn",
+                           "type":  "address",
+                           "internalType":  "address"
+                       },
+                       {
+                           "name":  "amountIn",
+                           "type":  "uint256",
+                           "internalType":  "uint256"
+                       }
+                   ],
+        "outputs":  [
+                        {
+                            "name":  "swapAmount",
+                            "type":  "uint256",
+                            "internalType":  "uint256"
+                        },
+                        {
+                            "name":  "expectedShares",
+                            "type":  "uint256",
+                            "internalType":  "uint256"
+                        }
+                    ],
+        "stateMutability":  "view"
+    },
+    {
+        "type":  "function",
+        "name":  "sellThePumpStrategy",
+        "inputs":  [
+
+                   ],
+        "outputs":  [
+                        {
+                            "name":  "",
+                            "type":  "address",
+                            "internalType":  "address"
+                        }
+                    ],
+        "stateMutability":  "view"
+    },
+    {
+        "type":  "function",
+        "name":  "zapDeposit",
+        "inputs":  [
+                       {
+                           "name":  "vault",
+                           "type":  "address",
+                           "internalType":  "address"
+                       },
+                       {
+                           "name":  "tokenIn",
+                           "type":  "address",
+                           "internalType":  "address"
+                       },
+                       {
+                           "name":  "amountIn",
+                           "type":  "uint256",
+                           "internalType":  "uint256"
+                       },
+                       {
+                           "name":  "minShares",
+                           "type":  "uint256",
+                           "internalType":  "uint256"
+                       },
+                       {
+                           "name":  "maxSlippageBps",
+                           "type":  "uint16",
+                           "internalType":  "uint16"
+                       },
+                       {
+                           "name":  "receiver",
+                           "type":  "address",
+                           "internalType":  "address"
+                       }
+                   ],
+        "outputs":  [
+                        {
+                            "name":  "shares",
+                            "type":  "uint256",
+                            "internalType":  "uint256"
+                        }
+                    ],
+        "stateMutability":  "payable"
+    },
+    {
+        "type":  "event",
+        "name":  "ZapDeposited",
+        "inputs":  [
+                       {
+                           "name":  "caller",
+                           "type":  "address",
+                           "indexed":  true,
+                           "internalType":  "address"
+                       },
+                       {
+                           "name":  "vault",
+                           "type":  "address",
+                           "indexed":  true,
+                           "internalType":  "address"
+                       },
+                       {
+                           "name":  "tokenIn",
+                           "type":  "address",
+                           "indexed":  true,
+                           "internalType":  "address"
+                       },
+                       {
+                           "name":  "amountIn",
+                           "type":  "uint256",
+                           "indexed":  false,
+                           "internalType":  "uint256"
+                       },
+                       {
+                           "name":  "swapAmount",
+                           "type":  "uint256",
+                           "indexed":  false,
+                           "internalType":  "uint256"
+                       },
+                       {
+                           "name":  "shares",
+                           "type":  "uint256",
+                           "indexed":  false,
+                           "internalType":  "uint256"
+                       },
+                       {
+                           "name":  "receiver",
+                           "type":  "address",
+                           "indexed":  false,
+                           "internalType":  "address"
+                       }
+                   ],
+        "anonymous":  false
+    },
+    {
+        "type":  "event",
+        "name":  "ZapRefunded",
+        "inputs":  [
+                       {
+                           "name":  "caller",
+                           "type":  "address",
+                           "indexed":  true,
+                           "internalType":  "address"
+                       },
+                       {
+                           "name":  "vault",
+                           "type":  "address",
+                           "indexed":  true,
+                           "internalType":  "address"
+                       },
+                       {
+                           "name":  "refund0",
+                           "type":  "uint256",
+                           "indexed":  false,
+                           "internalType":  "uint256"
+                       },
+                       {
+                           "name":  "refund1",
+                           "type":  "uint256",
+                           "indexed":  false,
+                           "internalType":  "uint256"
+                       }
+                   ],
+        "anonymous":  false
+    },
+    {
+        "type":  "error",
+        "name":  "BadToken",
+        "inputs":  [
+
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "BalanceContaminated",
+        "inputs":  [
+
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "InvalidDependency",
+        "inputs":  [
+
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "InvalidDepositResult",
+        "inputs":  [
+
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "InvalidEthSender",
+        "inputs":  [
+
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "InvalidNativeValue",
+        "inputs":  [
+
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "InvalidPriceRange",
+        "inputs":  [
+
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "InvalidRatio",
+        "inputs":  [
+
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "InvalidTick",
+        "inputs":  [
+
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "InvalidVaultConfiguration",
+        "inputs":  [
+
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "NativeTransferFailed",
+        "inputs":  [
+
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "ReentrancyGuardReentrantCall",
+        "inputs":  [
+
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "SafeCastOverflowedUintDowncast",
+        "inputs":  [
+                       {
+                           "name":  "bits",
+                           "type":  "uint8",
+                           "internalType":  "uint8"
+                       },
+                       {
+                           "name":  "value",
+                           "type":  "uint256",
+                           "internalType":  "uint256"
+                       }
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "SafeERC20FailedOperation",
+        "inputs":  [
+                       {
+                           "name":  "token",
+                           "type":  "address",
+                           "internalType":  "address"
+                       }
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "SelfReceiver",
+        "inputs":  [
+
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "SlippageTooHigh",
+        "inputs":  [
+
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "TokenTransferShortfall",
+        "inputs":  [
+
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "UnknownVault",
+        "inputs":  [
+
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "UnsupportedStrategy",
+        "inputs":  [
+
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "ZeroAmount",
+        "inputs":  [
+
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "ZeroReceiver",
+        "inputs":  [
+
+                   ]
+    }
+]
