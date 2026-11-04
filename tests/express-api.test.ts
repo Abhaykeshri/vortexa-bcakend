@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import request from 'supertest';
 import { createApp } from '../apps/api/src/app.js';
 import { loadConfig } from '../apps/api/src/config/env.js';
-import type { ApiDependencies } from '../apps/api/src/http-context.js';
+import type { ApiDependencies } from '../apps/api/src/api-dependencies.js';
 import { startApiServer } from '../apps/api/src/server.js';
 import { loadManifest } from '../packages/contracts/src/manifest.js';
 
@@ -12,14 +12,17 @@ const contractEnvironment = Object.fromEntries(
   Object.keys(manifest.contracts).map((key) => [`CONTRACT_${key}`, `0x${'1'.repeat(40)}`]),
 );
 const internalApiKey = 'test-internal-key-with-at-least-32-characters';
-const config = loadConfig({
-  NODE_ENV: 'test',
-  ...contractEnvironment,
-  SEPOLIA_RPC_URL: 'https://rpc.example.org',
-  CORS_ALLOWED_ORIGINS: 'https://app.example.org',
-  INTERNAL_API_KEY: internalApiKey,
-  MAX_REQUEST_BODY_BYTES: '1024',
-}, manifest);
+const config = loadConfig(
+  {
+    NODE_ENV: 'test',
+    ...contractEnvironment,
+    SEPOLIA_RPC_URL: 'https://rpc.example.org',
+    CORS_ALLOWED_ORIGINS: 'https://app.example.org',
+    INTERNAL_API_KEY: internalApiKey,
+    MAX_REQUEST_BODY_BYTES: '1024',
+  },
+  manifest,
+);
 
 function dependencies(overrides: Partial<ApiDependencies> = {}): ApiDependencies {
   return {
@@ -44,14 +47,33 @@ function dependencies(overrides: Partial<ApiDependencies> = {}): ApiDependencies
 }
 
 test('Express application registers routes and preserves response schema and request IDs', async () => {
-  const response = await request(createApp(dependencies())).get('/api/v1/chain/status').expect(200);
-  assert.equal(response.body.chainId, 11155111);
-  assert.equal(response.body.latestBlock, '123');
-  assert.equal(response.body.safeConfirmationBlock, '111');
-  assert.match(response.body.requestId, /^[0-9a-f-]{36}$/);
-  assert.equal(response.headers['x-request-id'], response.body.requestId);
+  const events: { event: string; detail?: Record<string, unknown> }[] = [];
+  const response = await request(
+    createApp(
+      dependencies({
+        log: (_level, event, detail) => events.push({ event, ...(detail ? { detail } : {}) }),
+      }),
+    ),
+  )
+    .get('/api/v1/chain/status?ignored=no-log')
+    .expect(200);
+  const body = response.body as {
+    chainId: number;
+    latestBlock: string;
+    safeConfirmationBlock: string;
+    requestId: string;
+  };
+  assert.equal(body.chainId, 11155111);
+  assert.equal(body.latestBlock, '123');
+  assert.equal(body.safeConfirmationBlock, '111');
+  assert.match(body.requestId, /^[0-9a-f-]{36}$/);
+  assert.equal(response.headers['x-request-id'], body.requestId);
   assert.equal(response.headers['x-powered-by'], undefined);
   assert.equal(response.headers['cache-control'], 'no-store');
+  const completion = events.find(({ event }) => event === 'http_request_completed');
+  assert.equal(completion?.detail?.path, '/api/v1/chain/status');
+  assert.equal(completion?.detail?.statusCode, 200);
+  assert.equal(JSON.stringify(completion).includes('ignored'), false);
 });
 
 test('Helmet and CORS middleware enforce restrictive browser policy', async () => {
@@ -71,11 +93,10 @@ test('Helmet and CORS middleware enforce restrictive browser policy', async () =
 
 test('authentication, preflight and Redis-backed fail-closed rate limiting run before controllers', async () => {
   const app = createApp(dependencies());
-  await request(app).get('/health/ready').expect(401, /UNAUTHORIZED/);
   await request(app)
     .get('/health/ready')
-    .set('Authorization', `Bearer ${internalApiKey}`)
-    .expect(503);
+    .expect(401, /UNAUTHORIZED/);
+  await request(app).get('/health/ready').set('Authorization', `Bearer ${internalApiKey}`).expect(503);
   const preflight = await request(app)
     .options('/api/v1/network')
     .set('Origin', 'https://app.example.org')
@@ -87,36 +108,73 @@ test('authentication, preflight and Redis-backed fail-closed rate limiting run b
   await request(createApp(withoutLimiter)).get('/api/v1/network').expect(503);
 });
 
+test('Express rate limiting uses the distributed store and preserves endpoint-specific limits', async () => {
+  let count = 0;
+  const app = createApp(
+    dependencies({
+      limiter: {
+        rateLimit: async (_scope, limit) => {
+          count += 1;
+          return { allowed: count <= limit, remaining: Math.max(0, limit - count) };
+        },
+      },
+    }),
+  );
+  for (let attempt = 0; attempt < config.contractStatusRateLimit; attempt += 1)
+    await request(app).get('/api/v1/contracts/status').expect(200);
+  const blocked = await request(app).get('/api/v1/contracts/status').expect(429);
+  assert.equal((blocked.body as { error: string }).error, 'RATE_LIMITED');
+  assert.equal(blocked.headers['ratelimit-limit'], String(config.contractStatusRateLimit));
+});
+
 test('payload limits, malformed JSON and unsupported methods return safe errors', async () => {
   const app = createApp(dependencies());
-  await request(app).get('/health/live').set('Content-Length', '1025').expect(413, /PAYLOAD_TOO_LARGE/);
+  await request(app)
+    .get('/health/live')
+    .set('Content-Length', '1025')
+    .expect(413, /PAYLOAD_TOO_LARGE/);
   await request(app)
     .post('/unknown')
     .set('Content-Type', 'application/json')
     .send('{invalid')
     .expect(400, /INVALID_JSON/);
-  await request(app).post('/unknown').send({ ok: true }).expect(405, /METHOD_NOT_ALLOWED/);
+  await request(app)
+    .post('/unknown')
+    .send({ ok: true })
+    .expect(405, /METHOD_NOT_ALLOWED/);
 });
 
-test('M7 route validation and missing projections preserve safe status codes', async () => {
+test('Vault route validation and missing projections preserve safe status codes', async () => {
   const app = createApp(dependencies());
-  await request(app).get('/api/v1/vaults?limit=0').expect(400, /INVALID_LIMIT/);
-  await request(app).get('/api/v1/vaults').expect(503, /PROJECTION_UNAVAILABLE/);
-  await request(app).get('/api/v1/vaults/not-an-address').expect(400, /INVALID_ADDRESS/);
-  await request(app).get('/api/v1/network?chainId=1').expect(400, /INVALID_CHAIN_ID/);
+  await request(app)
+    .get('/api/v1/vaults?limit=0')
+    .expect(400, /INVALID_LIMIT/);
+  await request(app)
+    .get('/api/v1/vaults')
+    .expect(503, /PROJECTION_UNAVAILABLE/);
+  await request(app)
+    .get('/api/v1/vaults/not-an-address')
+    .expect(400, /INVALID_ADDRESS/);
+  await request(app)
+    .get('/api/v1/network?chainId=1')
+    .expect(400, /INVALID_CHAIN_ID/);
 });
 
 test('central error handling sanitizes upstream errors', async () => {
-  const app = createApp(dependencies({
-    chain: {
-      verifyNetwork: async () => { throw new Error('rpc secret in upstream URL'); },
-      latestBlock: async () => 0n,
-      finalizedBlock: async () => 0n,
-      inspect: async () => ({}),
-    },
-  }));
+  const app = createApp(
+    dependencies({
+      chain: {
+        verifyNetwork: async () => {
+          throw new Error('rpc secret in upstream URL');
+        },
+        latestBlock: async () => 0n,
+        finalizedBlock: async () => 0n,
+        inspect: async () => ({}),
+      },
+    }),
+  );
   const response = await request(app).get('/api/v1/chain/status').expect(503);
-  assert.equal(response.body.error, 'UPSTREAM_UNAVAILABLE');
+  assert.equal((response.body as { error: string }).error, 'UPSTREAM_UNAVAILABLE');
   assert.doesNotMatch(response.text, /rpc secret/);
 });
 
@@ -126,8 +184,11 @@ test('graceful shutdown closes injected dependencies', async () => {
     app: createApp(dependencies()),
     host: '127.0.0.1',
     port: 0,
+    shutdownGracePeriodMs: 1000,
     log: () => undefined,
-    closeDependencies: async () => { closed = true; },
+    closeDependencies: async () => {
+      closed = true;
+    },
   });
   await new Promise<void>((resolve) => server.once('listening', resolve));
   process.emit('SIGTERM');

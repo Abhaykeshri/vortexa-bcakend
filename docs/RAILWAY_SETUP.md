@@ -1,12 +1,24 @@
-# Railway PostgreSQL and Redis (M4-M5)
+# Railway service setup
 
-1. In Railway, rotate BOTH passwords previously exposed in chat.
-2. PostgreSQL service > Connect > Public Networking: enable a TCP proxy and copy the external DATABASE_URL.
-3. Redis service > Connect > Public Networking: enable a TCP proxy and copy the external REDIS_URL.
-4. Replace placeholders only in local `.env` or PM2 server secrets, never `.env.example`.
-5. `*.railway.internal` addresses are PRIVATE and do not work from your Windows laptop or Raj's external PM2 server.
-6. Prefer encrypted connections (TLS) and IP restrictions where supported. Keep credentials out of logs.
-7. Run `npm run verify:live:m4-m5` for isolated connectivity/behavior evidence. It creates and removes a random schema and namespaced Redis keys only.
-8. Run the real migration only against an approved staging/production database after backup and restore planning.
+The repository defines `vortexa-api`, `vortexa-indexer`, and `vortexa-outbox` in `.railway/railway.ts` using Railway Infrastructure as Code. The file is safe to plan locally but must not be applied without reviewing the linked project, environment, cost, variables, and resulting diff.
 
-Never concatenate database and Redis URLs. They are separate environment variables.
+## Planning
+
+1. Install an approved Railway CLI release compatible with the `railway` SDK in `package-lock.json`.
+2. Authenticate and link the intended non-production project/environment.
+3. Run the Railway configuration validation and plan commands.
+4. Confirm the plan affects only the three intended services and does not delete or replace databases, volumes, domains, or unrelated services.
+5. Apply only after named infrastructure approval.
+
+Railway's legacy `railway.toml`/`railway.json` config-as-code format is deprecated, so this repository uses the current TypeScript IaC format.
+
+## Networking and variables
+
+- Use Railway private PostgreSQL and Redis references for deployed services.
+- Do not enable public database/Redis TCP proxies for normal production operation.
+- Keep RPC URLs, database/Redis URLs, CORS origins, internal API keys, and worker identities in Railway variables or a managed secret store.
+- Set an exact HTTPS `CORS_ALLOWED_ORIGINS` value.
+- Enable `TRUST_PROXY` only after confirming the Railway ingress supplies the observed client as the rightmost forwarded address and the service cannot be bypassed directly.
+- The API listens on Railway's injected `PORT` with `HOST=0.0.0.0`.
+
+The deployment plan deliberately contains no pre-deploy migration hook. Backup, restore rehearsal, schema review, and an explicit migration approval must happen before an operator runs `npm run migrate`.

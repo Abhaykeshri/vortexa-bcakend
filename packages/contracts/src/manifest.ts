@@ -14,6 +14,11 @@ export interface DeploymentManifest {
   readonly contracts: Readonly<Record<string, ManifestContract>>;
 }
 
+/**
+ * Loads and validates a chain-scoped deployment manifest.
+ * Addresses and runtime hashes are validated syntactically here; live bytecode
+ * identity is checked separately by the contract verification command.
+ */
 export function loadManifest(path = 'packages/contracts/manifests/sepolia-v1.json'): DeploymentManifest {
   const parsed = JSON.parse(readFileSync(resolve(path), 'utf8')) as Partial<DeploymentManifest>;
   if (

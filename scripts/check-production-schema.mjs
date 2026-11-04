@@ -1,3 +1,6 @@
+import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import pg from 'pg';
 import { loadConfig } from '../dist/apps/api/src/config/env.js';
 
@@ -28,7 +31,7 @@ const expectedMigrations = [
   '0003_m5_outbox_m6_fencing',
   '0004_m7_vault_catalog',
 ];
-const config = loadConfig();
+const config = loadConfig(undefined, undefined, 'tool');
 if (!config.databaseUrl) throw new Error('DATABASE_URL is required');
 const pool = new pg.Pool({ connectionString: config.databaseUrl, max: 1, connectionTimeoutMillis: 10000 });
 try {
@@ -48,9 +51,23 @@ try {
     migrationVersions = migrations.rows.map((row) => row.version);
     console.log(`Applied migration versions: ${migrationVersions.join(',') || 'none'}`);
   }
+  const appliedChecksums = names.has('vortexa_schema_migrations')
+    ? await pool.query('SELECT version,checksum FROM public.vortexa_schema_migrations')
+    : { rows: [] };
+  const checksumByVersion = new Map(
+    appliedChecksums.rows.map((row) => [String(row.version), String(row.checksum)]),
+  );
+  let checksumsValid = true;
+  for (const version of expectedMigrations) {
+    const expectedChecksum = createHash('sha256')
+      .update(await readFile(resolve('packages/adapters/migrations', `${version}.sql`), 'utf8'))
+      .digest('hex');
+    if (checksumByVersion.get(version) !== expectedChecksum) checksumsValid = false;
+  }
   const migrationsComplete = expectedMigrations.every((version) => migrationVersions.includes(version));
   console.log(`Required migrations present: ${migrationsComplete}`);
-  process.exitCode = names.size === expected.length && migrationsComplete ? 0 : 2;
+  console.log(`Applied migration checksums valid: ${checksumsValid}`);
+  process.exitCode = names.size === expected.length && migrationsComplete && checksumsValid ? 0 : 2;
 } finally {
   await pool.end();
 }

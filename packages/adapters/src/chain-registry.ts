@@ -5,8 +5,8 @@ import {
   JsonRpcHttpAdapter,
   EvmChainReadAdapter,
   type RpcTransport,
-} from './sepolia-rpc.js';
-import { ContractReader } from './contract-reader.js';
+} from './sepolia-rpc.adapter.js';
+import { ContractReader } from './contract-reader.adapter.js';
 
 export interface ChainConfig {
   readonly chainId: ChainId;

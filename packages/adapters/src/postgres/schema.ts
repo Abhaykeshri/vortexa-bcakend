@@ -191,7 +191,7 @@ export const balances = pgTable(
   },
   (t) => [primaryKey({ columns: [t.chainId, t.vaultAddress, t.walletAddress] })],
 );
-export const m7ProjectionState = pgTable('m7_projection_state', {
+export const projectionState = pgTable('m7_projection_state', {
   chainId: bigint('chain_id', { mode: 'number' }).primaryKey(),
   generation: bigint('generation', { mode: 'bigint' }).notNull().default(0n),
   indexedThroughBlock: numeric('indexed_through_block', { precision: 78, scale: 0 }).notNull(),
@@ -199,7 +199,7 @@ export const m7ProjectionState = pgTable('m7_projection_state', {
   finality: text('finality').notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
-export const m7ProjectionEvents = pgTable(
+export const projectionEvents = pgTable(
   'm7_projection_events',
   {
     chainId: bigint('chain_id', { mode: 'number' }).notNull(),

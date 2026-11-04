@@ -13,8 +13,9 @@ function localEnvironment() {
         const value = line.slice(separator + 1).trim();
         return [
           line.slice(0, separator).trim(),
-          value.replace(/^(?:"(.*)"|'(.*)')$/, (_match, doubleQuoted, singleQuoted) =>
-            doubleQuoted ?? singleQuoted,
+          value.replace(
+            /^(?:"(.*)"|'(.*)')$/,
+            (_match, doubleQuoted, singleQuoted) => doubleQuoted ?? singleQuoted,
           ),
         ];
       }),
@@ -49,7 +50,14 @@ for (const [key, contract] of Object.entries(manifest.contracts)) {
   const matches = Boolean(actualHash && contract.runtimeCodeHash && actualHash === contract.runtimeCodeHash);
   if (!matches) failed = true;
   console.log(
-    JSON.stringify({ contract: key, address: contract.address, bytes, actualHash, expectedHash: contract.runtimeCodeHash, matches }),
+    JSON.stringify({
+      contract: key,
+      address: contract.address,
+      bytes,
+      actualHash,
+      expectedHash: contract.runtimeCodeHash,
+      matches,
+    }),
   );
 }
 if (failed) process.exitCode = 1;

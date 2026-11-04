@@ -1,8 +1,8 @@
 import type { RequestHandler } from 'express';
-import type { ApiDependencies } from '../http-context.js';
-import { presentJson } from '../presenters/json.js';
+import type { ApiDependencies } from '../api-dependencies.js';
+import { presentJson } from '../presenters/json-response.presenter.js';
 
-export function healthController(dependencies: ApiDependencies): {
+export function createHealthController(dependencies: ApiDependencies): {
   live: RequestHandler;
   ready: RequestHandler;
 } {
@@ -33,13 +33,11 @@ export function healthController(dependencies: ApiDependencies): {
         ]);
         services.sepolia = checks[0]?.status === 'fulfilled' ? 'ready' : 'unavailable';
         if (config.databaseUrl)
-          services.postgres = checks[1]?.status === 'fulfilled' && checks[1].value === true
-            ? 'ready'
-            : 'unavailable';
+          services.postgres =
+            checks[1]?.status === 'fulfilled' && checks[1].value === true ? 'ready' : 'unavailable';
         if (config.redisUrl)
-          services.redis = checks[2]?.status === 'fulfilled' && checks[2].value === true
-            ? 'ready'
-            : 'unavailable';
+          services.redis =
+            checks[2]?.status === 'fulfilled' && checks[2].value === true ? 'ready' : 'unavailable';
         services.contracts = checks[3]?.status === 'fulfilled' ? 'ready' : 'unavailable';
         const ready = Object.values(services).every((value) => value === 'ready');
         presentJson(res, ready ? 200 : 503, {

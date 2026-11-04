@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import pg from 'pg';
 import { loadConfig } from '../dist/apps/api/src/config/env.js';
-const config = loadConfig();
+const config = loadConfig(undefined, undefined, 'tool');
 if (!config.databaseUrl) throw new Error('DATABASE_URL is required');
 const direction = process.argv[2] === 'down' ? 'down' : 'up';
 if (direction === 'down' && process.env.ALLOW_MIGRATION_DOWN !== 'true')

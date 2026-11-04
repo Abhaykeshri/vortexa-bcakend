@@ -4,7 +4,9 @@ const ignored = new Set(['.git', 'node_modules', 'dist', 'coverage', 'tmp', 'out
 const files = [];
 function walk(dir) {
   for (const name of readdirSync(dir)) {
-    if (ignored.has(name) || name === '.env') continue;
+    // Local environment files are intentionally untracked and may contain real
+    // credentials. Scan the committed example, but never read local secret files.
+    if (ignored.has(name) || (name.startsWith('.env') && name !== '.env.example')) continue;
     const path = join(dir, name);
     const stat = statSync(path);
     if (stat.isDirectory()) walk(path);
@@ -32,4 +34,4 @@ if (findings.length) {
   console.error(findings.join('\n'));
   process.exit(1);
 }
-console.log(`Secret scan passed (${files.length} files inspected; local .env excluded)`);
+console.log(`Secret scan passed (${files.length} files inspected; local environment files excluded)`);

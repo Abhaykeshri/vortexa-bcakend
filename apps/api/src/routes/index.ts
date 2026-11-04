@@ -1,17 +1,17 @@
 import { Router, type RequestHandler } from 'express';
-import { contractsController } from '../controllers/contracts-controller.js';
-import { healthController } from '../controllers/health-controller.js';
-import { m7Controller } from '../controllers/m7-controller.js';
-import { networkController } from '../controllers/network-controller.js';
-import type { ApiDependencies } from '../http-context.js';
-import { validateRequestedChain } from '../validators/http.js';
+import { createContractsController } from '../controllers/contracts-controller.js';
+import { createHealthController } from '../controllers/health-controller.js';
+import { createVaultQueryController } from '../controllers/vault-query.controller.js';
+import { createNetworkController } from '../controllers/network-controller.js';
+import type { ApiDependencies } from '../api-dependencies.js';
+import { validateRequestedChain } from '../validators/request.validator.js';
 
 export function createApiRouter(dependencies: ApiDependencies): Router {
   const router = Router();
-  const health = healthController(dependencies);
-  const network = networkController(dependencies);
-  const contracts = contractsController(dependencies);
-  const m7 = m7Controller(dependencies);
+  const health = createHealthController(dependencies);
+  const network = createNetworkController(dependencies);
+  const contracts = createContractsController(dependencies);
+  const vaultQueries = createVaultQueryController(dependencies);
   const chainValidation: RequestHandler = (req, _res, next) => {
     try {
       validateRequestedChain(req.query.chainId, dependencies.config.chainId);
@@ -26,9 +26,9 @@ export function createApiRouter(dependencies: ApiDependencies): Router {
   router.get('/api/v1/chain/status', chainValidation, network.status);
   router.get('/api/v1/contracts/status', chainValidation, contracts.status);
   router.get('/api/v1/contracts/wiring', chainValidation, contracts.wiring);
-  router.get('/api/v1/vaults', chainValidation, m7.listVaults);
-  router.get('/api/v1/vaults/:address/events', chainValidation, m7.vaultEvents);
-  router.get('/api/v1/vaults/:address', chainValidation, m7.vaultDetail);
-  router.get('/api/v1/wallets/:address/positions', chainValidation, m7.walletPositions);
+  router.get('/api/v1/vaults', chainValidation, vaultQueries.listVaults);
+  router.get('/api/v1/vaults/:address/events', chainValidation, vaultQueries.vaultEvents);
+  router.get('/api/v1/vaults/:address', chainValidation, vaultQueries.vaultDetail);
+  router.get('/api/v1/wallets/:address/positions', chainValidation, vaultQueries.walletPositions);
   return router;
 }

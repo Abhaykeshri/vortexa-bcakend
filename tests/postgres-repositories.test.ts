@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { Pool } from 'pg';
-import { PostgresIndexerStore } from '../packages/adapters/src/postgres/indexer-store.js';
+import { PostgresIndexerStore } from '../packages/adapters/src/postgres/postgres-indexer.repository.js';
 import {
   DurableWorkRepository,
   PostgresVaultRepository,
@@ -67,8 +67,8 @@ test('Postgres indexer fencing rejects a stale process before any batch write', 
     connect: async () => client,
   } as unknown as Pool;
   const store = new PostgresIndexerStore(pool);
-  const oldToken = await store.acquireFence(11155111, 'm6-indexer');
-  const currentToken = await store.acquireFence(11155111, 'm6-indexer');
+  const oldToken = await store.acquireFence(11155111, 'indexer');
+  const currentToken = await store.acquireFence(11155111, 'indexer');
   const header = {
     chainId: 11155111 as const,
     number: 1n,
@@ -77,9 +77,9 @@ test('Postgres indexer fencing rejects a stale process before any batch write', 
     timestamp: 1n,
     finality: 'OBSERVED' as const,
   };
-  await assert.rejects(() => store.commitBatch('m6-indexer', oldToken, [header], []), /INDEXER_FENCE_LOST/);
+  await assert.rejects(() => store.commitBatch('indexer', oldToken, [header], []), /INDEXER_FENCE_LOST/);
   assert.equal(batchWrites, 0);
-  await store.commitBatch('m6-indexer', currentToken, [header], []);
+  await store.commitBatch('indexer', currentToken, [header], []);
   assert.equal(batchWrites, 1);
 });
 test('Postgres indexer shutdown status is fenced to its current worker', async () => {
@@ -96,17 +96,17 @@ test('Postgres indexer shutdown status is fenced to its current worker', async (
     },
   } as unknown as Pool;
   const store = new PostgresIndexerStore(pool);
-  await store.finishWorker(11155111, 'm6-indexer', 7n, 'STOPPED', null);
+  await store.finishWorker(11155111, 'indexer', 7n, 'STOPPED', null);
   assert.equal(state, 'STOPPED');
   assert.equal(lastError, null);
-  await assert.rejects(store.finishWorker(11155111, 'm6-indexer', 6n, 'STOPPED', null), /INDEXER_FENCE_LOST/);
+  await assert.rejects(store.finishWorker(11155111, 'indexer', 6n, 'STOPPED', null), /INDEXER_FENCE_LOST/);
   stateFence = 8n;
   await assert.rejects(
-    store.finishWorker(11155111, 'm6-indexer', 7n, 'DEGRADED', 'IndexerRpcOperationError'),
+    store.finishWorker(11155111, 'indexer', 7n, 'DEGRADED', 'IndexerRpcOperationError'),
     /INDEXER_FENCE_LOST/,
   );
   assert.equal(state, 'STOPPED');
-  await store.finishWorker(11155111, 'm6-indexer', 8n, 'DEGRADED', 'IndexerRpcOperationError');
+  await store.finishWorker(11155111, 'indexer', 8n, 'DEGRADED', 'IndexerRpcOperationError');
   assert.equal(state, 'DEGRADED');
   assert.equal(lastError, 'IndexerRpcOperationError');
 });

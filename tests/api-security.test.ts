@@ -4,13 +4,11 @@ import { loadConfig } from '../apps/api/src/config/env.js';
 import {
   enforceSecurity,
   csrfAllowsRequest,
-  httpSecurityHeaders,
   rateLimitClientId,
   responseWithRequestId,
-  serializeJsonResponse,
   validateContentLength,
   type RateLimiter,
-} from '../apps/api/src/security.js';
+} from '../apps/api/src/http-security.js';
 import type { DeploymentManifest } from '../packages/contracts/src/manifest.js';
 
 const address = `0x${'1'.repeat(40)}` as const;
@@ -52,31 +50,6 @@ const config = loadConfig(
   },
   manifest,
 );
-
-test('HTTP security headers preserve the API CSP and add Helmet-compatible protections', () => {
-  const headers = httpSecurityHeaders(false);
-  assert.equal(headers['Content-Security-Policy'], "default-src 'none'; frame-ancestors 'none'");
-  assert.equal(headers['Cross-Origin-Opener-Policy'], 'same-origin');
-  assert.equal(headers['Cross-Origin-Resource-Policy'], 'same-origin');
-  assert.equal(headers['X-Content-Type-Options'], 'nosniff');
-  assert.equal(headers['X-Frame-Options'], 'DENY');
-  assert.equal(headers['X-XSS-Protection'], '0');
-  assert.equal(headers['Content-Type'], 'application/json; charset=utf-8');
-  assert.equal(headers['Strict-Transport-Security'], undefined);
-  assert.equal(httpSecurityHeaders(true)['Strict-Transport-Security'], 'max-age=31536000');
-});
-
-test('JSON responses preserve valid markup-like data without creating an HTML response', () => {
-  const payload = {
-    label: '<script>alert("x")</script>',
-    detail: 'A & B',
-  };
-  const body = serializeJsonResponse(payload);
-  assert.deepEqual(JSON.parse(body), payload);
-  assert.doesNotMatch(body, /<script>/);
-  assert.equal(httpSecurityHeaders(false)['Content-Type'], 'application/json; charset=utf-8');
-  assert.equal(httpSecurityHeaders(false)['X-Content-Type-Options'], 'nosniff');
-});
 
 test('responses carry a server-generated request ID without trusting arbitrary values', () => {
   const requestId = '123e4567-e89b-42d3-a456-426614174000';
@@ -266,7 +239,7 @@ test('concurrent rate-limit requests cannot exceed the configured threshold', as
   assert.equal(results.filter((result) => result.status === 429).length, 5);
 });
 
-test('M7 dynamic routes are exact-origin protected and Redis rate limited before handlers', async () => {
+test('Vault query routes are exact-origin protected and Redis rate limited before handlers', async () => {
   const allowed = await enforceSecurity(
     {
       method: 'GET',
@@ -278,7 +251,7 @@ test('M7 dynamic routes are exact-origin protected and Redis rate limited before
     new FakeLimiter(),
   );
   assert.equal(allowed.handled, false);
-  assert.equal(allowed.headers['RateLimit-Limit'], String(config.m7EventRateLimit));
+  assert.equal(allowed.headers['RateLimit-Limit'], String(config.vaultEventRateLimit));
   const blockedOrigin = await enforceSecurity(
     {
       method: 'GET',

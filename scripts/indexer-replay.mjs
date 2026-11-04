@@ -1,20 +1,23 @@
 import pg from 'pg';
 import { loadConfig } from '../dist/apps/api/src/config/env.js';
-import { AbiEventDecoder, ViemIndexerSource } from '../dist/packages/adapters/src/indexer/viem-source.js';
-import { PostgresIndexerStore } from '../dist/packages/adapters/src/postgres/indexer-store.js';
+import {
+  AbiEventDecoder,
+  ViemIndexerSource,
+} from '../dist/packages/adapters/src/indexer/viem-indexer-source.adapter.js';
+import { PostgresIndexerStore } from '../dist/packages/adapters/src/postgres/postgres-indexer.repository.js';
 import {
   boundedRanges,
   finalityAt,
   logicalStateHash,
   orderedLogs,
   verifySourceChain,
-} from '../dist/packages/application/src/indexer.js';
+} from '../dist/packages/application/src/blockchain-indexer.service.js';
 const args = Object.fromEntries(
   process.argv
     .slice(2)
     .reduce((a, v, i, all) => (v.startsWith('--') ? [...a, [v.slice(2), all[i + 1]]] : a), []),
 );
-const config = loadConfig();
+const config = loadConfig(undefined, undefined, 'tool');
 if (!config.databaseUrl) throw new Error('DATABASE_URL is required');
 const chainId = Number(args['chain-id'] ?? config.chainId);
 if (chainId !== config.chainId) throw new Error('Unsupported chain');
@@ -32,7 +35,7 @@ const pool = new pg.Pool({
   application_name: 'vortexa-replay',
 });
 const store = new PostgresIndexerStore(pool);
-const fenceToken = await store.acquireFence(chainId, 'm6-replay');
+const fenceToken = await store.acquireFence(chainId, 'indexer-replay');
 const allHeaders = [];
 const allLogs = [];
 const heads = await source.heads();
@@ -53,7 +56,7 @@ try {
       chainId,
       finality: finalityAt(l.blockNumber, heads),
     }));
-    await store.commitBatch('m6-replay', fenceToken, headers, logs);
+    await store.commitBatch('indexer-replay', fenceToken, headers, logs);
     allHeaders.push(...headers);
     allLogs.push(...logs);
   }

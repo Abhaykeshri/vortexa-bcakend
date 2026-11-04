@@ -74,17 +74,18 @@ export interface Config {
   networkRateLimit: number;
   chainRateLimit: number;
   contractStatusRateLimit: number;
-  m7ReadRateLimit: number;
-  m7EventRateLimit: number;
-  m7WalletRateLimit: number;
+  vaultReadRateLimit: number;
+  vaultEventRateLimit: number;
+  walletPositionRateLimit: number;
   maxRequestBodyBytes: number;
-  m7PageDefault: number;
-  m7PageMax: number;
-  m7StaleAfterBlocks: number;
-  m7VaultListCacheTtlSeconds: number;
-  m7VaultDetailCacheTtlSeconds: number;
-  m7VaultEventsCacheTtlSeconds: number;
-  m7PositionsCacheTtlSeconds: number;
+  shutdownGracePeriodMs: number;
+  defaultPageSize: number;
+  maximumPageSize: number;
+  projectionStaleAfterBlocks: number;
+  vaultListCacheTtlSeconds: number;
+  vaultDetailCacheTtlSeconds: number;
+  vaultEventsCacheTtlSeconds: number;
+  walletPositionsCacheTtlSeconds: number;
   manifestVersion: string;
   contracts: Record<ContractKey, Address>;
   contractCodeHashes: Partial<Record<ContractKey, `0x${string}`>>;
@@ -99,6 +100,26 @@ export interface Config {
   indexerConfirmations?: number;
   indexerMaxReorgDepth?: number;
   indexerWorkerId?: string;
+}
+export type RuntimeProcess = 'api' | 'indexer' | 'tool';
+
+export interface OutboxConfig {
+  readonly databaseUrl: string;
+  readonly redisUrl: string;
+  readonly logLevel: 'debug' | 'info' | 'warn' | 'error';
+}
+
+/** Loads only the persistence settings required by the notification worker. */
+export function loadOutboxConfig(env: Record<string, string> = readEnvironment()): OutboxConfig {
+  const databaseUrl = required(env, 'DATABASE_URL');
+  const redisUrl = required(env, 'REDIS_URL');
+  const database = new URL(databaseUrl);
+  const redis = new URL(redisUrl);
+  if (!['postgres:', 'postgresql:'].includes(database.protocol)) throw new Error('Invalid DATABASE_URL');
+  if (!['redis:', 'rediss:'].includes(redis.protocol)) throw new Error('Invalid REDIS_URL');
+  const logLevel = env.LOG_LEVEL ?? 'info';
+  if (!['debug', 'info', 'warn', 'error'].includes(logLevel)) throw new Error('Invalid LOG_LEVEL');
+  return { databaseUrl, redisUrl, logLevel: logLevel as OutboxConfig['logLevel'] };
 }
 function required(env: Record<string, string>, key: string): string {
   const value = env[key];
@@ -138,6 +159,7 @@ function exactOrigins(source: string, production: boolean): string[] {
 export function loadConfig(
   env: Record<string, string> = readEnvironment(),
   suppliedManifest?: DeploymentManifest,
+  runtimeProcess: RuntimeProcess = 'api',
 ): Config {
   const nodeEnv = env.NODE_ENV ?? 'development';
   if (!['development', 'test', 'production'].includes(nodeEnv)) throw new Error('Invalid NODE_ENV');
@@ -184,18 +206,27 @@ export function loadConfig(
   const internalApiKey = env.INTERNAL_API_KEY;
   const logLevel = env.LOG_LEVEL ?? 'info';
   const globalRateLimit = int(env, 'GLOBAL_RATE_LIMIT', 60, 1, 10000);
-  const m7PageDefault = int(env, 'M7_PAGE_DEFAULT', 25, 1, 100);
-  const m7PageMax = int(env, 'M7_PAGE_MAX', 50, 1, 100);
-  if (m7PageDefault > m7PageMax) throw new Error('M7_PAGE_DEFAULT must not exceed M7_PAGE_MAX');
+  const defaultPageSize = int(env, 'M7_PAGE_DEFAULT', 25, 1, 100);
+  const maximumPageSize = int(env, 'M7_PAGE_MAX', 50, 1, 100);
+  if (defaultPageSize > maximumPageSize) throw new Error('M7_PAGE_DEFAULT must not exceed M7_PAGE_MAX');
   if (!['debug', 'info', 'warn', 'error'].includes(logLevel)) throw new Error('Invalid LOG_LEVEL');
   if (nodeEnv === 'production') {
-    if (!env.DATABASE_URL || env.DATABASE_URL.includes('REPLACE_') || env.DATABASE_URL.includes('YOUR_'))
+    if (
+      runtimeProcess !== 'tool' &&
+      (!env.DATABASE_URL || env.DATABASE_URL.includes('REPLACE_') || env.DATABASE_URL.includes('YOUR_'))
+    )
       throw new Error('Missing production dependency configuration: DATABASE_URL');
-    if (!env.REDIS_URL || env.REDIS_URL.includes('REPLACE_') || env.REDIS_URL.includes('YOUR_'))
+    if (
+      runtimeProcess !== 'tool' &&
+      (!env.REDIS_URL || env.REDIS_URL.includes('REPLACE_') || env.REDIS_URL.includes('YOUR_'))
+    )
       throw new Error('Missing production security configuration: REDIS_URL');
-    if (corsAllowedOrigins.length === 0)
+    if (runtimeProcess === 'api' && corsAllowedOrigins.length === 0)
       throw new Error('Missing production security configuration: CORS_ALLOWED_ORIGINS');
-    if (!internalApiKey || internalApiKey.startsWith('REPLACE_') || internalApiKey.length < 32)
+    if (
+      runtimeProcess === 'api' &&
+      (!internalApiKey || internalApiKey.startsWith('REPLACE_') || internalApiKey.length < 32)
+    )
       throw new Error('Missing or weak production security configuration: INTERNAL_API_KEY');
   }
   const indexerEnabled = boolean(env, 'INDEXER_ENABLED');
@@ -253,17 +284,18 @@ export function loadConfig(
     networkRateLimit: globalRateLimit,
     chainRateLimit: Math.min(globalRateLimit, 30),
     contractStatusRateLimit: Math.min(globalRateLimit, 10),
-    m7ReadRateLimit: Math.min(globalRateLimit, int(env, 'M7_READ_RATE_LIMIT', 30, 1, 10000)),
-    m7EventRateLimit: Math.min(globalRateLimit, int(env, 'M7_EVENT_RATE_LIMIT', 15, 1, 10000)),
-    m7WalletRateLimit: Math.min(globalRateLimit, int(env, 'M7_WALLET_RATE_LIMIT', 20, 1, 10000)),
+    vaultReadRateLimit: Math.min(globalRateLimit, int(env, 'M7_READ_RATE_LIMIT', 30, 1, 10000)),
+    vaultEventRateLimit: Math.min(globalRateLimit, int(env, 'M7_EVENT_RATE_LIMIT', 15, 1, 10000)),
+    walletPositionRateLimit: Math.min(globalRateLimit, int(env, 'M7_WALLET_RATE_LIMIT', 20, 1, 10000)),
     maxRequestBodyBytes: int(env, 'MAX_REQUEST_BODY_BYTES', 16384, 1024, 1048576),
-    m7PageDefault,
-    m7PageMax,
-    m7StaleAfterBlocks: int(env, 'M7_STALE_AFTER_BLOCKS', 25, 1, 10000),
-    m7VaultListCacheTtlSeconds: int(env, 'M7_VAULT_LIST_CACHE_TTL_SECONDS', 15, 1, 300),
-    m7VaultDetailCacheTtlSeconds: int(env, 'M7_VAULT_DETAIL_CACHE_TTL_SECONDS', 10, 1, 300),
-    m7VaultEventsCacheTtlSeconds: int(env, 'M7_VAULT_EVENTS_CACHE_TTL_SECONDS', 10, 1, 300),
-    m7PositionsCacheTtlSeconds: int(env, 'M7_POSITIONS_CACHE_TTL_SECONDS', 5, 1, 300),
+    shutdownGracePeriodMs: int(env, 'SHUTDOWN_GRACE_PERIOD_MS', 15000, 1000, 60000),
+    defaultPageSize,
+    maximumPageSize,
+    projectionStaleAfterBlocks: int(env, 'M7_STALE_AFTER_BLOCKS', 25, 1, 10000),
+    vaultListCacheTtlSeconds: int(env, 'M7_VAULT_LIST_CACHE_TTL_SECONDS', 15, 1, 300),
+    vaultDetailCacheTtlSeconds: int(env, 'M7_VAULT_DETAIL_CACHE_TTL_SECONDS', 10, 1, 300),
+    vaultEventsCacheTtlSeconds: int(env, 'M7_VAULT_EVENTS_CACHE_TTL_SECONDS', 10, 1, 300),
+    walletPositionsCacheTtlSeconds: int(env, 'M7_POSITIONS_CACHE_TTL_SECONDS', 5, 1, 300),
     manifestVersion: manifest.manifestVersion,
     contracts,
     contractCodeHashes,

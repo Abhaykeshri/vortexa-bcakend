@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { AbiEventDecoder } from '../packages/adapters/src/indexer/viem-source.js';
+import { AbiEventDecoder } from '../packages/adapters/src/indexer/viem-indexer-source.adapter.js';
 import { loadManifest } from '../packages/contracts/src/manifest.js';
 
 type AbiParameter = { type?: unknown; components?: unknown };
@@ -19,7 +19,10 @@ function validateParameters(value: unknown, context: string): void {
     assert.ok(parameter && typeof parameter === 'object', `${context}[${index}]`);
     const item = parameter as AbiParameter;
     assert.equal(typeof item.type, 'string', `${context}[${index}].type`);
-    assert.match(item.type as string, /^(?:address|bool|string|bytes(?:[1-9]|[12][0-9]|3[0-2])?|u?int(?:8|16|24|32|40|48|56|64|72|80|88|96|104|112|120|128|136|144|152|160|168|176|184|192|200|208|216|224|232|240|248|256)?|tuple)(?:\[[0-9]*\])*$/);
+    assert.match(
+      item.type as string,
+      /^(?:address|bool|string|bytes(?:[1-9]|[12][0-9]|3[0-2])?|u?int(?:8|16|24|32|40|48|56|64|72|80|88|96|104|112|120|128|136|144|152|160|168|176|184|192|200|208|216|224|232|240|248|256)?|tuple)(?:\[[0-9]*\])*$/,
+    );
     if ((item.type as string).startsWith('tuple'))
       validateParameters(item.components, `${context}[${index}].components`);
   }
@@ -42,17 +45,24 @@ test('all 15 current ABI files preserve valid entries, tuples, overloads, events
       readFileSync(`packages/adapters/abis/${contract.name}.json`, 'utf8').replace(/^\uFEFF/, ''),
     ) as AbiEntry[];
     assert.ok(Array.isArray(abi), contract.name);
-    assert.ok(abi.some((entry) => entry.type === 'function'), contract.name);
+    assert.ok(
+      abi.some((entry) => entry.type === 'function'),
+      contract.name,
+    );
     const signatures = new Set<string>();
     for (const [index, entry] of abi.entries()) {
-      assert.ok(['constructor', 'error', 'event', 'fallback', 'function', 'receive'].includes(String(entry.type)), `${contract.name}[${index}].type`);
+      assert.ok(
+        ['constructor', 'error', 'event', 'fallback', 'function', 'receive'].includes(String(entry.type)),
+        `${contract.name}[${index}].type`,
+      );
       if (['error', 'event', 'function'].includes(String(entry.type)))
         assert.equal(typeof entry.name, 'string', `${contract.name}[${index}].name`);
       if (entry.inputs !== undefined) validateParameters(entry.inputs, `${contract.name}[${index}].inputs`);
-      if (entry.outputs !== undefined) validateParameters(entry.outputs, `${contract.name}[${index}].outputs`);
+      if (entry.outputs !== undefined)
+        validateParameters(entry.outputs, `${contract.name}[${index}].outputs`);
       if (['error', 'event', 'function'].includes(String(entry.type))) {
-        const inputTypes = (entry.inputs as AbiParameter[]).map((input) => input.type).join(',');
-        const signature = `${entry.type}:${String(entry.name)}(${inputTypes})`;
+        const inputTypes = (entry.inputs as AbiParameter[]).map((input) => String(input.type)).join(',');
+        const signature = `${String(entry.type)}:${String(entry.name)}(${inputTypes})`;
         assert.ok(!signatures.has(signature), `duplicate ABI signature: ${contract.name} ${signature}`);
         signatures.add(signature);
       }

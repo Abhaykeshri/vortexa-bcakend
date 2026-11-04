@@ -1,6 +1,6 @@
 import { loadConfig } from '../dist/apps/api/src/config/env.js';
 
-const config = loadConfig();
+const config = loadConfig(undefined, undefined, 'tool');
 let requestId = 0;
 async function rpc(method, params) {
   const response = await fetch(config.rpcUrl, {

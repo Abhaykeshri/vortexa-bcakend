@@ -1,9 +1,9 @@
 import type { RequestHandler } from 'express';
 import { publicConfig } from '../config/env.js';
-import type { ApiDependencies } from '../http-context.js';
-import { presentJson } from '../presenters/json.js';
+import type { ApiDependencies } from '../api-dependencies.js';
+import { presentJson } from '../presenters/json-response.presenter.js';
 
-export function networkController(dependencies: ApiDependencies): {
+export function createNetworkController(dependencies: ApiDependencies): {
   configuration: RequestHandler;
   status: RequestHandler;
 } {

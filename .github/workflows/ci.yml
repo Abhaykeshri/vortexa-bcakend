@@ -1,8 +1,18 @@
-name: CI
-on: [push, pull_request]
+name: Backend verification
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: backend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
     steps:
@@ -12,6 +22,4 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci --no-audit --no-fund
-      - run: npm run scan:secrets
-      - run: npm run check:boundaries
-      - run: npm run check
+      - run: npm run ci

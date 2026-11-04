@@ -1,8 +1,8 @@
 import type { RequestHandler } from 'express';
-import type { ApiDependencies } from '../http-context.js';
-import { presentJson } from '../presenters/json.js';
+import type { ApiDependencies } from '../api-dependencies.js';
+import { presentJson } from '../presenters/json-response.presenter.js';
 
-export function contractsController(dependencies: ApiDependencies): {
+export function createContractsController(dependencies: ApiDependencies): {
   status: RequestHandler;
   wiring: RequestHandler;
 } {
@@ -13,9 +13,9 @@ export function contractsController(dependencies: ApiDependencies): {
         const results = await Promise.all(
           Object.keys(dependencies.config.contracts).map(async (name) => ({
             name,
-            ...(await dependencies.chain.inspect(
+            ...((await dependencies.chain.inspect(
               dependencies.contractRegistry.resolve(dependencies.config.chainId, name),
-            ) as object),
+            )) as object),
           })),
         );
         presentJson(res, 200, { chainId: dependencies.config.chainId, contracts: results });

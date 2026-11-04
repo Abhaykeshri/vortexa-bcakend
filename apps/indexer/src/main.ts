@@ -1,20 +1,32 @@
 import pg from 'pg';
 import { loadConfig } from '../../api/src/config/env.js';
-import { ChainIndexer, delayOrAbort, indexerRetryDelay } from '../../../packages/application/src/indexer.js';
+import {
+  BlockchainIndexerService,
+  delayOrAbort,
+  indexerRetryDelay,
+} from '../../../packages/application/src/blockchain-indexer.service.js';
 import {
   AbiEventDecoder,
   IndexerRpcOperationError,
   ViemIndexerSource,
-} from '../../../packages/adapters/src/indexer/viem-source.js';
-import { PostgresIndexerStore } from '../../../packages/adapters/src/postgres/indexer-store.js';
-import { connectRedis, RedisCoordinationAdapter } from '../../../packages/adapters/src/redis-coordination.js';
+} from '../../../packages/adapters/src/indexer/viem-indexer-source.adapter.js';
+import { PostgresIndexerStore } from '../../../packages/adapters/src/postgres/postgres-indexer.repository.js';
+import {
+  connectRedis,
+  RedisCoordinationAdapter,
+} from '../../../packages/adapters/src/redis-coordination.adapter.js';
 import { chainScopedKey } from '../../../packages/adapters/src/chain-registry.js';
-import { DrizzleM7VaultRepository } from '../../../packages/adapters/src/postgres/m7-repository.js';
-import { ViemPinnedVaultStateReader } from '../../../packages/adapters/src/m7-pinned-reader.js';
-import { M7ProjectionRefresher } from '../../../packages/application/src/m7-projection-refresher.js';
+import { DrizzleVaultProjectionRepository } from '../../../packages/adapters/src/postgres/vault-projection.repository.js';
+import { ViemPinnedVaultStateReader } from '../../../packages/adapters/src/pinned-projection.reader.js';
+import { ProjectionRefreshService } from '../../../packages/application/src/projection-refresh.service.js';
+
+// These values are persisted in Redis and PostgreSQL by existing deployments.
+// Keep them stable even though their legacy labels no longer describe source-code organization.
+const INDEXER_LEASE_RESOURCE = 'm6_indexer';
+const INDEXER_CONSUMER = 'm6-indexer';
 
 async function start() {
-  const config = loadConfig();
+  const config = loadConfig(undefined, undefined, 'indexer');
   if (
     !config.indexerEnabled ||
     !config.indexerChainId ||
@@ -44,9 +56,14 @@ async function start() {
   const pool = new pg.Pool({
     connectionString: config.databaseUrl,
     max: 4,
+    connectionTimeoutMillis: 5000,
+    idleTimeoutMillis: 30000,
+    statement_timeout: 60000,
+    query_timeout: 65000,
     application_name: 'vortexa-indexer',
   });
-  const leaseKey = chainScopedKey(config.indexerChainId, 'm6_indexer');
+  pool.on('error', (error) => log('error', 'postgres_pool_error', { errorType: error.name }));
+  const leaseKey = chainScopedKey(config.indexerChainId, INDEXER_LEASE_RESOURCE);
   const leaseTtl = Math.max(pollIntervalMs * 3, 15000);
   let stopping = false;
   const stopController = new AbortController();
@@ -64,7 +81,11 @@ async function start() {
   let leaseAcquired = false;
   let heartbeat: ReturnType<typeof setInterval> | undefined;
   try {
-    redis = await connectRedis(config.redisUrl);
+    redis = await connectRedis(config.redisUrl, (error) =>
+      log('error', 'redis_client_error', {
+        errorType: error instanceof Error ? error.name : 'unknown',
+      }),
+    );
     coordination = new RedisCoordinationAdapter(redis);
     leaseAcquired = await coordination.acquire(leaseKey, leaseOwner, leaseTtl);
     if (!leaseAcquired) throw new Error('Indexer lease unavailable');
@@ -75,17 +96,17 @@ async function start() {
       config.indexerConfirmations,
     );
     store = new PostgresIndexerStore(pool);
-    const m7Repository = new DrizzleM7VaultRepository(pool);
-    const m7Refresher = new M7ProjectionRefresher(
+    const vaultProjectionRepository = new DrizzleVaultProjectionRepository(pool);
+    const projectionRefresher = new ProjectionRefreshService(
       config.indexerChainId,
-      m7Repository,
+      vaultProjectionRepository,
       new ViemPinnedVaultStateReader(config.rpcUrls, config.indexerChainId, config.contracts.VAULT_LENS),
-      m7Repository,
+      vaultProjectionRepository,
     );
-    fenceToken = await store.acquireFence(config.indexerChainId, 'm6-indexer');
-    const indexer = new ChainIndexer(
+    fenceToken = await store.acquireFence(config.indexerChainId, INDEXER_CONSUMER);
+    const indexer = new BlockchainIndexerService(
       config.indexerChainId,
-      'm6-indexer',
+      INDEXER_CONSUMER,
       config.indexerStartBlock,
       config.indexerBatchSize,
       config.indexerMaxReorgDepth,
@@ -128,8 +149,8 @@ async function start() {
         if (result.to !== undefined) projectionRefreshPending = true;
         let projection = { vaults: 0, positions: 0 };
         if (projectionRefreshPending) {
-          const cursor = await store.cursor(config.indexerChainId, 'm6-indexer');
-          if (cursor) projection = await m7Refresher.refreshAt(cursor.blockNumber);
+          const cursor = await store.cursor(config.indexerChainId, INDEXER_CONSUMER);
+          if (cursor) projection = await projectionRefresher.refreshAt(cursor.blockNumber);
           projectionRefreshPending = false;
         }
         failures = 0;
@@ -154,7 +175,7 @@ async function start() {
                 rpcFromBlock: error.fromBlock?.toString(),
                 rpcToBlock: error.toBlock?.toString(),
                 rpcCode: error.rpcCode,
-                rpcCauseType: error.cause instanceof Error ? error.cause.name : 'unknown',
+                rpcCauseType: error.rpcCauseType,
               }
             : {}),
           failures,
@@ -184,7 +205,7 @@ async function start() {
         const status = stopping && terminalError === undefined ? 'STOPPED' : 'DEGRADED';
         const lastError =
           status === 'STOPPED' ? null : terminalError instanceof Error ? terminalError.name : 'unknown';
-        await store.finishWorker(config.indexerChainId, 'm6-indexer', fenceToken, status, lastError);
+        await store.finishWorker(config.indexerChainId, INDEXER_CONSUMER, fenceToken, status, lastError);
         log('info', 'indexer_status_updated', { status });
       } catch (error) {
         process.exitCode = 1;

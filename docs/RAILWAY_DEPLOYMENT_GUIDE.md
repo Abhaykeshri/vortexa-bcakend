@@ -1,34 +1,31 @@
 # Railway deployment guide
 
-## Service configuration
+## Service topology
 
-- Runtime: Node.js 22.
-- Install: `npm ci --no-audit --no-fund`.
-- Build: `npm run build`.
-- Start: `npm run start`.
-- Optional independent workers: `npm run outbox:start` and, only after M6 approval, `npm run indexer:start`.
-- Set `HOST=0.0.0.0`; Railway supplies `PORT`.
-- Liveness path: `/health/live`. Do not place the server-only API key in a browser or public health-check URL.
+| Service | Start command | Exposure | Replicas |
+|---|---|---|---|
+| `vortexa-api` | `npm run start` | Public HTTPS | One until scaling approval |
+| `vortexa-indexer` | `npm run indexer:start` | Private worker | Exactly one active writer |
+| `vortexa-outbox` | `npm run outbox:start` | Private worker | One until concurrency review |
 
-Set validated process variables from `.env.example`. Required production values include `ACTIVE_CHAIN_ID=11155111`, RPC URL(s), all 12 `CONTRACT_*` addresses, manifest path, Railway private `DATABASE_URL`/`REDIS_URL`, exact HTTPS origins under `CORS_ALLOWED_ORIGINS`, a strong internal API key, global rate limit, logging, and indexer settings when the separate worker is enabled. Local `.env` is ignored in production.
+All services build with `npm run build` on Node.js 22. The API startup health path is `/health/live`; authenticated `/health/ready` must be monitored separately because Railway deployment health checks are not continuous monitoring.
 
 ## Release procedure
 
-1. Pass `npm ci` and `npm run check` from a clean revision.
-2. Verify `npm run verify:live:m3` and artifact equivalence.
-3. Back up PostgreSQL and prove an isolated restore.
-4. Validate the production schema, review all pending migrations (including `0003_m5_outbox_m6_fencing`), approve the exact target, and run `npm run migrate` once.
-5. Configure Railway variables without logging their values. Use private service hostnames inside Railway.
-6. Deploy the immutable revision. Keep the previous artifact available.
-7. Verify `/health/live`; from a server-side operator run authenticated `/health/ready`.
-8. Smoke-test network/chain/contracts endpoints with the approved origin and verify rate limits/logging.
-9. If workers are approved, verify their shutdown/restart and monitor RPC mismatch, Redis reconnects, outbox backlog, and dead letters.
-10. Obtain release approval and record evidence.
+1. Select an immutable revision and pass clean-install CI with `npm ci --no-audit --no-fund` and `npm run ci`.
+2. Pass static release validation, runtime bytecode verification, contract wiring verification, and the read-only timelock inspection.
+3. Rotate approved credentials, configure exact frontend origin, and review `TRUST_PROXY` ingress assumptions.
+4. Create a PostgreSQL recovery point and complete an isolated restore rehearsal.
+5. Run the read-only production schema check, review pending migration SQL/checksums, approve the exact target, and execute migrations as a separate operator action.
+6. Generate and review the Railway IaC plan. The plan must not include destructive database, volume, domain, or unrelated service changes.
+7. Deploy the API revision. Verify liveness, authenticated readiness, structured request logging, and `npm run smoke:production`.
+8. Start the indexer, verify lease/fence ownership and bounded progress, then start the outbox and verify backlog processing.
+9. Observe the release dashboard through the stabilization window and obtain named release approval.
 
 ## Rollback
 
-Application rollback should normally redeploy the prior artifact. Database rollback is destructive and requires an approved recovery point plus `ALLOW_MIGRATION_DOWN=true`; never use it as an automatic deploy hook. If health fails, stop traffic/worker work, preserve logs and state, decide application rollback versus database restore, then validate readiness again.
+Redeploy the prior immutable application artifact first. Never attach `migrate:down` to a Railway deployment hook. If schema incompatibility prevents application rollback, follow the database decision process in [ROLLBACK_RUNBOOK.md](./ROLLBACK_RUNBOOK.md) using a verified recovery point.
 
-## Post-deploy evidence
+## Evidence
 
-Record revision, deployment ID/time, environment owner, migration ledger/checksum, backup/restore evidence, health responses (without credentials), smoke results, incidents, and named approvals. None of those live actions was performed by the 2026-11-03 local verification pass.
+Record revision, IaC plan, Railway deployment IDs, service variables owner, backup/restore evidence, migration ledger, health/smoke output, contract/timelock verification, worker cursor/fence/backlog observations, alerts, and named approvals.
