@@ -49,6 +49,9 @@ export const CONTRACT_KEYS = [
   'SELL_THE_PUMP_STRATEGY',
   'SWAP_EXECUTOR',
   'ZAP',
+  'AUTOMATION_TANK',
+  'VAULT_M6_MODULE',
+  'VAULT_M5_MODULE',
 ] as const;
 export type ContractKey = (typeof CONTRACT_KEYS)[number];
 export interface Config {
@@ -158,7 +161,9 @@ export function loadConfig(
   const contracts = {} as Record<ContractKey, Address>;
   const contractCodeHashes: Partial<Record<ContractKey, `0x${string}`>> = {};
   for (const key of CONTRACT_KEYS) {
-    const address = required(env, `CONTRACT_${key}`);
+    const address = env[`CONTRACT_${key}`] ?? manifest.contracts[key]?.address;
+    if (!address || address.startsWith('REPLACE_') || address.includes('YOUR_'))
+      throw new Error(`Missing or placeholder configuration: CONTRACT_${key}`);
     if (!/^0x[a-fA-F0-9]{40}$/.test(address)) throw new Error(`Invalid contract address: CONTRACT_${key}`);
     contracts[key] = address as Address;
     if (manifest.contracts[key]?.runtimeCodeHash)

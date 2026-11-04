@@ -46,6 +46,10 @@
         "stateMutability":  "nonpayable"
     },
     {
+        "type":  "fallback",
+        "stateMutability":  "payable"
+    },
+    {
         "type":  "receive",
         "stateMutability":  "payable"
     },
@@ -227,110 +231,6 @@
                         }
                     ],
         "stateMutability":  "nonpayable"
-    },
-    {
-        "type":  "function",
-        "name":  "config",
-        "inputs":  [
-
-                   ],
-        "outputs":  [
-                        {
-                            "name":  "vaultConfig",
-                            "type":  "tuple",
-                            "internalType":  "struct VaultConfig",
-                            "components":  [
-                                               {
-                                                   "name":  "poolKey",
-                                                   "type":  "tuple",
-                                                   "internalType":  "struct PoolKey",
-                                                   "components":  [
-                                                                      {
-                                                                          "name":  "currency0",
-                                                                          "type":  "address",
-                                                                          "internalType":  "Currency"
-                                                                      },
-                                                                      {
-                                                                          "name":  "currency1",
-                                                                          "type":  "address",
-                                                                          "internalType":  "Currency"
-                                                                      },
-                                                                      {
-                                                                          "name":  "fee",
-                                                                          "type":  "uint24",
-                                                                          "internalType":  "uint24"
-                                                                      },
-                                                                      {
-                                                                          "name":  "tickSpacing",
-                                                                          "type":  "int24",
-                                                                          "internalType":  "int24"
-                                                                      },
-                                                                      {
-                                                                          "name":  "hooks",
-                                                                          "type":  "address",
-                                                                          "internalType":  "address"
-                                                                      }
-                                                                  ]
-                                               },
-                                               {
-                                                   "name":  "strategy",
-                                                   "type":  "uint8",
-                                                   "internalType":  "enum Strategy"
-                                               },
-                                               {
-                                                   "name":  "shapeId",
-                                                   "type":  "uint8",
-                                                   "internalType":  "uint8"
-                                               },
-                                               {
-                                                   "name":  "centerTick",
-                                                   "type":  "int24",
-                                                   "internalType":  "int24"
-                                               },
-                                               {
-                                                   "name":  "ticksLeft",
-                                                   "type":  "int24",
-                                                   "internalType":  "int24"
-                                               },
-                                               {
-                                                   "name":  "ticksRight",
-                                                   "type":  "int24",
-                                                   "internalType":  "int24"
-                                               },
-                                               {
-                                                   "name":  "driftTicks",
-                                                   "type":  "uint24",
-                                                   "internalType":  "uint24"
-                                               },
-                                               {
-                                                   "name":  "trailTicks",
-                                                   "type":  "uint24",
-                                                   "internalType":  "uint24"
-                                               },
-                                               {
-                                                   "name":  "autoRebalance",
-                                                   "type":  "bool",
-                                                   "internalType":  "bool"
-                                               },
-                                               {
-                                                   "name":  "lockOnFill",
-                                                   "type":  "bool",
-                                                   "internalType":  "bool"
-                                               },
-                                               {
-                                                   "name":  "depositCap",
-                                                   "type":  "uint256",
-                                                   "internalType":  "uint256"
-                                               },
-                                               {
-                                                   "name":  "baseIsCurrency0",
-                                                   "type":  "bool",
-                                                   "internalType":  "bool"
-                                               }
-                                           ]
-                        }
-                    ],
-        "stateMutability":  "view"
     },
     {
         "type":  "function",
@@ -593,6 +493,36 @@
                                                   "name":  "baseIsCurrency0",
                                                   "type":  "bool",
                                                   "internalType":  "bool"
+                                              },
+                                              {
+                                                  "name":  "triggerTicksDown",
+                                                  "type":  "uint24",
+                                                  "internalType":  "uint24"
+                                              },
+                                              {
+                                                  "name":  "triggerTicksUp",
+                                                  "type":  "uint24",
+                                                  "internalType":  "uint24"
+                                              },
+                                              {
+                                                  "name":  "rebalanceMethod",
+                                                  "type":  "uint8",
+                                                  "internalType":  "enum RebalanceMethod"
+                                              },
+                                              {
+                                                  "name":  "limitWidthTicks",
+                                                  "type":  "uint24",
+                                                  "internalType":  "uint24"
+                                              },
+                                              {
+                                                  "name":  "token0WeightBps",
+                                                  "type":  "uint16",
+                                                  "internalType":  "uint16"
+                                              },
+                                              {
+                                                  "name":  "carpetBps",
+                                                  "type":  "uint16",
+                                                  "internalType":  "uint16"
                                               }
                                           ]
                        }

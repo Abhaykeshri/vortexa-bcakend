@@ -27,6 +27,9 @@ const contractKeys = [
   'SELL_THE_PUMP_STRATEGY',
   'SWAP_EXECUTOR',
   'ZAP',
+  'AUTOMATION_TANK',
+  'VAULT_M6_MODULE',
+  'VAULT_M5_MODULE',
 ] as const;
 const contractEnvironment = Object.fromEntries(contractKeys.map((key) => [`CONTRACT_${key}`, address]));
 const manifest = {

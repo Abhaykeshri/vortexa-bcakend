@@ -72,6 +72,21 @@
     },
     {
         "type":  "function",
+        "name":  "PRICE_MOVE",
+        "inputs":  [
+
+                   ],
+        "outputs":  [
+                        {
+                            "name":  "",
+                            "type":  "bytes32",
+                            "internalType":  "bytes32"
+                        }
+                    ],
+        "stateMutability":  "view"
+    },
+    {
+        "type":  "function",
         "name":  "TRAIL",
         "inputs":  [
 
@@ -180,6 +195,36 @@
                                                   "name":  "baseIsCurrency0",
                                                   "type":  "bool",
                                                   "internalType":  "bool"
+                                              },
+                                              {
+                                                  "name":  "triggerTicksDown",
+                                                  "type":  "uint24",
+                                                  "internalType":  "uint24"
+                                              },
+                                              {
+                                                  "name":  "triggerTicksUp",
+                                                  "type":  "uint24",
+                                                  "internalType":  "uint24"
+                                              },
+                                              {
+                                                  "name":  "rebalanceMethod",
+                                                  "type":  "uint8",
+                                                  "internalType":  "enum RebalanceMethod"
+                                              },
+                                              {
+                                                  "name":  "limitWidthTicks",
+                                                  "type":  "uint24",
+                                                  "internalType":  "uint24"
+                                              },
+                                              {
+                                                  "name":  "token0WeightBps",
+                                                  "type":  "uint16",
+                                                  "internalType":  "uint16"
+                                              },
+                                              {
+                                                  "name":  "carpetBps",
+                                                  "type":  "uint16",
+                                                  "internalType":  "uint16"
                                               }
                                           ]
                        },
@@ -320,6 +365,36 @@
                                                   "name":  "baseIsCurrency0",
                                                   "type":  "bool",
                                                   "internalType":  "bool"
+                                              },
+                                              {
+                                                  "name":  "triggerTicksDown",
+                                                  "type":  "uint24",
+                                                  "internalType":  "uint24"
+                                              },
+                                              {
+                                                  "name":  "triggerTicksUp",
+                                                  "type":  "uint24",
+                                                  "internalType":  "uint24"
+                                              },
+                                              {
+                                                  "name":  "rebalanceMethod",
+                                                  "type":  "uint8",
+                                                  "internalType":  "enum RebalanceMethod"
+                                              },
+                                              {
+                                                  "name":  "limitWidthTicks",
+                                                  "type":  "uint24",
+                                                  "internalType":  "uint24"
+                                              },
+                                              {
+                                                  "name":  "token0WeightBps",
+                                                  "type":  "uint16",
+                                                  "internalType":  "uint16"
+                                              },
+                                              {
+                                                  "name":  "carpetBps",
+                                                  "type":  "uint16",
+                                                  "internalType":  "uint16"
                                               }
                                           ]
                        },
@@ -465,6 +540,36 @@
                                                   "name":  "baseIsCurrency0",
                                                   "type":  "bool",
                                                   "internalType":  "bool"
+                                              },
+                                              {
+                                                  "name":  "triggerTicksDown",
+                                                  "type":  "uint24",
+                                                  "internalType":  "uint24"
+                                              },
+                                              {
+                                                  "name":  "triggerTicksUp",
+                                                  "type":  "uint24",
+                                                  "internalType":  "uint24"
+                                              },
+                                              {
+                                                  "name":  "rebalanceMethod",
+                                                  "type":  "uint8",
+                                                  "internalType":  "enum RebalanceMethod"
+                                              },
+                                              {
+                                                  "name":  "limitWidthTicks",
+                                                  "type":  "uint24",
+                                                  "internalType":  "uint24"
+                                              },
+                                              {
+                                                  "name":  "token0WeightBps",
+                                                  "type":  "uint16",
+                                                  "internalType":  "uint16"
+                                              },
+                                              {
+                                                  "name":  "carpetBps",
+                                                  "type":  "uint16",
+                                                  "internalType":  "uint16"
                                               }
                                           ]
                        }
@@ -573,11 +678,41 @@
                                                   "name":  "baseIsCurrency0",
                                                   "type":  "bool",
                                                   "internalType":  "bool"
+                                              },
+                                              {
+                                                  "name":  "triggerTicksDown",
+                                                  "type":  "uint24",
+                                                  "internalType":  "uint24"
+                                              },
+                                              {
+                                                  "name":  "triggerTicksUp",
+                                                  "type":  "uint24",
+                                                  "internalType":  "uint24"
+                                              },
+                                              {
+                                                  "name":  "rebalanceMethod",
+                                                  "type":  "uint8",
+                                                  "internalType":  "enum RebalanceMethod"
+                                              },
+                                              {
+                                                  "name":  "limitWidthTicks",
+                                                  "type":  "uint24",
+                                                  "internalType":  "uint24"
+                                              },
+                                              {
+                                                  "name":  "token0WeightBps",
+                                                  "type":  "uint16",
+                                                  "internalType":  "uint16"
+                                              },
+                                              {
+                                                  "name":  "carpetBps",
+                                                  "type":  "uint16",
+                                                  "internalType":  "uint16"
                                               }
                                           ]
                        },
                        {
-                           "name":  "",
+                           "name":  "tick",
                            "type":  "int24",
                            "internalType":  "int24"
                        },
@@ -780,6 +915,36 @@
                                                   "name":  "baseIsCurrency0",
                                                   "type":  "bool",
                                                   "internalType":  "bool"
+                                              },
+                                              {
+                                                  "name":  "triggerTicksDown",
+                                                  "type":  "uint24",
+                                                  "internalType":  "uint24"
+                                              },
+                                              {
+                                                  "name":  "triggerTicksUp",
+                                                  "type":  "uint24",
+                                                  "internalType":  "uint24"
+                                              },
+                                              {
+                                                  "name":  "rebalanceMethod",
+                                                  "type":  "uint8",
+                                                  "internalType":  "enum RebalanceMethod"
+                                              },
+                                              {
+                                                  "name":  "limitWidthTicks",
+                                                  "type":  "uint24",
+                                                  "internalType":  "uint24"
+                                              },
+                                              {
+                                                  "name":  "token0WeightBps",
+                                                  "type":  "uint16",
+                                                  "internalType":  "uint16"
+                                              },
+                                              {
+                                                  "name":  "carpetBps",
+                                                  "type":  "uint16",
+                                                  "internalType":  "uint16"
                                               }
                                           ]
                        },
@@ -811,6 +976,13 @@
     {
         "type":  "error",
         "name":  "InvalidDrift",
+        "inputs":  [
+
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "InvalidLimit",
         "inputs":  [
 
                    ]
@@ -867,6 +1039,20 @@
     {
         "type":  "error",
         "name":  "InvalidTrail",
+        "inputs":  [
+
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "InvalidTrigger",
+        "inputs":  [
+
+                   ]
+    },
+    {
+        "type":  "error",
+        "name":  "InvalidWeight",
         "inputs":  [
 
                    ]

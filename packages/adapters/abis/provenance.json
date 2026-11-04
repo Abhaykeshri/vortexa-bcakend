@@ -1,0 +1,13 @@
+﻿{
+    "network":  "Sepolia",
+    "chainId":  11155111,
+    "sourceBranch":  "development",
+    "sourceCommit":  "f64fade7334d01c5a48ebf276b70c493f9e520d6",
+    "exportedAtUtc":  "2026-11-04T07:14:07.0922478Z",
+    "missing":  [
+
+                ],
+    "ambiguous":  [
+
+                  ]
+}

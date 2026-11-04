@@ -228,6 +228,36 @@
                                                                           "name":  "baseIsCurrency0",
                                                                           "type":  "bool",
                                                                           "internalType":  "bool"
+                                                                      },
+                                                                      {
+                                                                          "name":  "triggerTicksDown",
+                                                                          "type":  "uint24",
+                                                                          "internalType":  "uint24"
+                                                                      },
+                                                                      {
+                                                                          "name":  "triggerTicksUp",
+                                                                          "type":  "uint24",
+                                                                          "internalType":  "uint24"
+                                                                      },
+                                                                      {
+                                                                          "name":  "rebalanceMethod",
+                                                                          "type":  "uint8",
+                                                                          "internalType":  "enum RebalanceMethod"
+                                                                      },
+                                                                      {
+                                                                          "name":  "limitWidthTicks",
+                                                                          "type":  "uint24",
+                                                                          "internalType":  "uint24"
+                                                                      },
+                                                                      {
+                                                                          "name":  "token0WeightBps",
+                                                                          "type":  "uint16",
+                                                                          "internalType":  "uint16"
+                                                                      },
+                                                                      {
+                                                                          "name":  "carpetBps",
+                                                                          "type":  "uint16",
+                                                                          "internalType":  "uint16"
                                                                       }
                                                                   ]
                                                },
@@ -325,6 +355,21 @@
                                                },
                                                {
                                                    "name":  "poolStateAvailable",
+                                                   "type":  "bool",
+                                                   "internalType":  "bool"
+                                               },
+                                               {
+                                                   "name":  "manager",
+                                                   "type":  "address",
+                                                   "internalType":  "address"
+                                               },
+                                               {
+                                                   "name":  "hasLimitBand",
+                                                   "type":  "bool",
+                                                   "internalType":  "bool"
+                                               },
+                                               {
+                                                   "name":  "hasCarpetBand",
                                                    "type":  "bool",
                                                    "internalType":  "bool"
                                                }
@@ -455,6 +500,36 @@
                                                                           "name":  "baseIsCurrency0",
                                                                           "type":  "bool",
                                                                           "internalType":  "bool"
+                                                                      },
+                                                                      {
+                                                                          "name":  "triggerTicksDown",
+                                                                          "type":  "uint24",
+                                                                          "internalType":  "uint24"
+                                                                      },
+                                                                      {
+                                                                          "name":  "triggerTicksUp",
+                                                                          "type":  "uint24",
+                                                                          "internalType":  "uint24"
+                                                                      },
+                                                                      {
+                                                                          "name":  "rebalanceMethod",
+                                                                          "type":  "uint8",
+                                                                          "internalType":  "enum RebalanceMethod"
+                                                                      },
+                                                                      {
+                                                                          "name":  "limitWidthTicks",
+                                                                          "type":  "uint24",
+                                                                          "internalType":  "uint24"
+                                                                      },
+                                                                      {
+                                                                          "name":  "token0WeightBps",
+                                                                          "type":  "uint16",
+                                                                          "internalType":  "uint16"
+                                                                      },
+                                                                      {
+                                                                          "name":  "carpetBps",
+                                                                          "type":  "uint16",
+                                                                          "internalType":  "uint16"
                                                                       }
                                                                   ]
                                                },
@@ -552,6 +627,21 @@
                                                },
                                                {
                                                    "name":  "poolStateAvailable",
+                                                   "type":  "bool",
+                                                   "internalType":  "bool"
+                                               },
+                                               {
+                                                   "name":  "manager",
+                                                   "type":  "address",
+                                                   "internalType":  "address"
+                                               },
+                                               {
+                                                   "name":  "hasLimitBand",
+                                                   "type":  "bool",
+                                                   "internalType":  "bool"
+                                               },
+                                               {
+                                                   "name":  "hasCarpetBand",
                                                    "type":  "bool",
                                                    "internalType":  "bool"
                                                }

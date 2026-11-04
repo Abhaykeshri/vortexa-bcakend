@@ -37,21 +37,30 @@
     "verify:deployment-blocks": "npm run build && node scripts/find-deployment-blocks.mjs",
     "verify:live:m6": "npm run build && node scripts/verify-m6-live.mjs",
     "verify:live:m7": "npm run build && node scripts/verify-m7-live.mjs",
+    "verify:live:contracts": "node scripts/verify-contract-deployments.mjs",
     "clean": "tsc -b --clean",
     "start": "node dist/apps/api/src/main.js",
     "dev": "npm run build && npm run start"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
     "@types/node": "^22.0.0",
     "@types/pg": "^8.23.1",
+    "@types/supertest": "^7.2.1",
     "eslint": "^10.14.0",
     "prettier": "^3.9.10",
+    "supertest": "^7.3.1",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.72.1"
   },
   "dependencies": {
+    "cors": "^2.8.6",
     "drizzle-orm": "^0.45.4",
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.7.3",
+    "helmet": "^8.3.0",
     "pg": "^8.23.1",
     "redis": "^6.3.1",
     "viem": "^2.57.14"

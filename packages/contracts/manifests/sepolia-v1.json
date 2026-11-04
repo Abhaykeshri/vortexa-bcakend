@@ -1,20 +1,23 @@
 {
   "schemaVersion": 1,
-  "manifestVersion": "sepolia-v1-2026-11-02",
+  "manifestVersion": "sepolia-v1-2026-11-04",
   "chainId": 11155111,
   "network": "sepolia",
   "contracts": {
-    "PRICE_GUARD": { "name": "PriceGuard", "runtimeCodeHash": "0xdfc702a2f3c7fda354a37924f0714fe0f427c04ebb13007f9d243bee5fdaec80" },
-    "SHAPE_LIBRARY": { "name": "ShapeLibrary", "runtimeCodeHash": "0x888388c2d3401d10e981f07314ab4bf13c78e74c7063e0670038955f28d544be" },
-    "TIMELOCK_CONTROLLER": { "name": "TimelockController", "runtimeCodeHash": "0xef6d50482a6f230452eeff04125969ada535f34c849fb5da7409f5370f703d32" },
-    "VAULT": { "name": "Vault", "runtimeCodeHash": "0x081e6ac536d042820e38ec328e7de3bb86d66e479443d75f8c77d854c81ee2f7" },
-    "VAULT_FACTORY": { "name": "VaultFactory", "runtimeCodeHash": "0x0d411a6473a8673a55aa191b7db234026e93e4ac4a61dc7d4b96cc892f2f7ec0" },
-    "VAULT_LENS": { "name": "VaultLens", "runtimeCodeHash": "0xd0bd378d20f75e8e75bac3f9812ac0a6dfed8bff5cf2511474f6a94a8bb73b71" },
-    "FEE_COLLECTOR": { "name": "FeeCollector", "runtimeCodeHash": "0xc0323a5e3cd8cf26eadd984c21924b9019657a5401e23cbd93039c5eeb2d7f9d" },
-    "NORMAL_LP_STRATEGY": { "name": "NormalLPStrategy", "runtimeCodeHash": "0x2e802a2f650f765211df3a18c96e31118c763ff71c716bfbdf5766756b98ef29" },
-    "BUY_THE_DIP_STRATEGY": { "name": "BuyTheDipStrategy", "runtimeCodeHash": "0x40e59187bb57f8553da22019b65156cf09a200964734ef5ca072a6d418f66827" },
-    "SELL_THE_PUMP_STRATEGY": { "name": "SellThePumpStrategy", "runtimeCodeHash": "0x9fc9992644818aa1dacb8e57342ddb8e953ede5a7ad9f5329b14d8dfff7cb250" },
-    "SWAP_EXECUTOR": { "name": "SwapExecutor", "runtimeCodeHash": "0xae8708300012e69476444ac5d02a5c66dd22c7d9a77c155b71eb42057e485cf5" },
-    "ZAP": { "name": "Zap", "runtimeCodeHash": "0xba5efea5afe0cf03f5bd6d600a3f730abc977c4337fb2b4d6d544d35e28d6e3a" }
+    "PRICE_GUARD": { "name": "PriceGuard", "address": "0x5288B03FA0d74a7fE2d59611C360E50E77aC4bE3", "runtimeCodeHash": "0xdfc702a2f3c7fda354a37924f0714fe0f427c04ebb13007f9d243bee5fdaec80" },
+    "SHAPE_LIBRARY": { "name": "ShapeLibrary", "address": "0xBc6D0A524d5DF7C6b86648564b05277d49B5c213", "runtimeCodeHash": "0x4d5d5503e92fa6e9f1e3db016400897a179923ac2657da838580e06e8dbf1456" },
+    "TIMELOCK_CONTROLLER": { "name": "TimelockController", "address": "0x93Ee400618912Ef2b29Aa82e593db1a04850f355", "runtimeCodeHash": "0xef6d50482a6f230452eeff04125969ada535f34c849fb5da7409f5370f703d32" },
+    "FEE_COLLECTOR": { "name": "FeeCollector", "address": "0x2a48Ea5eC70e4429598f3B5F3E159d36376268a0", "runtimeCodeHash": "0xc0323a5e3cd8cf26eadd984c21924b9019657a5401e23cbd93039c5eeb2d7f9d" },
+    "NORMAL_LP_STRATEGY": { "name": "NormalLPStrategy", "address": "0x1a9D81a0a6e1574650578e95ef720C1dc18125e1", "runtimeCodeHash": "0x2a9561b981396324a4797ea5e21fd2071eaf22ffb20ed650ee39bd766de426bc" },
+    "BUY_THE_DIP_STRATEGY": { "name": "BuyTheDipStrategy", "address": "0x6eFd1301eb2d9824b587E77A56122656D878c8C0", "runtimeCodeHash": "0x60d47cb62e1c592cbfa6dffad1f7d52b568d5603e6b8e9b409b7fe82a689fd5c" },
+    "SELL_THE_PUMP_STRATEGY": { "name": "SellThePumpStrategy", "address": "0xd20C9B835CCBf2F0BAd63bD3461D23Ed1C7D3ED5", "runtimeCodeHash": "0x53dab5cc74b795e304dd7fb54a28bb1bf2cf79eca8b1edbea8aefd7fe3112ace" },
+    "ZAP": { "name": "Zap", "address": "0xd40eC68130fb7908739400E4E52972D3933a20B6", "runtimeCodeHash": "0x72e5a987e4d576393aed164036d1fe211cc6cf473dbb972be83a1be4d79f953f" },
+    "SWAP_EXECUTOR": { "name": "SwapExecutor", "address": "0x07696dbD853DBc6F713fb2B18AbaC96eE2085069", "runtimeCodeHash": "0x3a1efa5717bfb277de5eb4259e295eabf69196edff6a78555df28da9f022b619" },
+    "VAULT": { "name": "Vault", "role": "implementation", "address": "0x258D4A053d9007F00e509088d79E0b99C9C47A1e", "runtimeCodeHash": "0xf28fca264787e8900822eba0a81519c6b30663eb5cdb2b420adace855651b620" },
+    "VAULT_FACTORY": { "name": "VaultFactory", "address": "0xA7dc22764A76e776a75bf7bBbe37169ae2CC45B2", "runtimeCodeHash": "0xd8ec04ecdd1717c247b519cfd7539e216a4b830a81b5b0aa753a6b53690ec4f0" },
+    "VAULT_LENS": { "name": "VaultLens", "address": "0x8d6F15c321135bc62247DFed56868E4EEB9D2745", "runtimeCodeHash": "0x2adfe583680fc4da43dc5c8f36cf41f09d22ff3c1db3401471312232065e9304" },
+    "AUTOMATION_TANK": { "name": "AutomationTank", "address": "0x2cfD5B064cd4bFBFd50808Ad91f6CA4b2DDFcd0D", "runtimeCodeHash": "0xc93ffd9a94d08d28f2fca15b0d903fd3fc78f377a27b590c6773ec8c9dbef78f" },
+    "VAULT_M6_MODULE": { "name": "VaultM6Module", "address": "0x0423b71524324a2bf2f225EbAc066417C455dD2b", "runtimeCodeHash": "0xafec9b536758eb5654ec132fb68148a9314822a26b78ce16caec7762814dd208" },
+    "VAULT_M5_MODULE": { "name": "VaultM5Module", "address": "0xeD0cdc5f4ebD5D0a9F49d1029464Bc1B8ba99130", "runtimeCodeHash": "0x6803c34de11e8b143b906be34f00de629561add4a6adb68dcec0ce329da229c8" }
   }
 }

@@ -29,6 +29,9 @@ const manifest = {
     BUY_THE_DIP_STRATEGY: { name: 'BuyTheDipStrategy' },
     SELL_THE_PUMP_STRATEGY: { name: 'SellThePumpStrategy' },
     SWAP_EXECUTOR: { name: 'SwapExecutor' },
+    AUTOMATION_TANK: { name: 'AutomationTank' },
+    VAULT_M6_MODULE: { name: 'VaultM6Module' },
+    VAULT_M5_MODULE: { name: 'VaultM5Module' },
   },
 } as DeploymentManifest;
 const env: Record<string, string> = {
