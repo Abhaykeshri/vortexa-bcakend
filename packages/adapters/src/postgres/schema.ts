@@ -51,6 +51,12 @@ export const vaults = pgTable(
     address: text('address').notNull(),
     strategy: text('strategy').notNull(),
     shapeId: integer('shape_id'),
+    name: text('name'),
+    symbol: text('symbol'),
+    manager: text('manager'),
+    paused: boolean('paused'),
+    inRange: boolean('in_range'),
+    poolTick: integer('pool_tick'),
     ownerRole: text('owner_role').notNull(),
     asOfBlock: numeric('as_of_block', { precision: 78, scale: 0 }).notNull(),
     config: jsonb('config').notNull().default({}),
@@ -284,4 +290,159 @@ export const keeperJobs = pgTable(
     createdAt,
   },
   (t) => [index('keeper_jobs_ready_idx').on(t.status, t.availableAt)],
+);
+
+export const pools = pgTable(
+  'v2_pools',
+  {
+    chainId: bigint('chain_id', { mode: 'number' }).notNull(),
+    poolId: text('pool_id').notNull(),
+    poolKey: jsonb('pool_key').notNull(),
+    allowed: boolean('allowed').notNull(),
+    baseIsCurrency0: boolean('base_is_currency0').notNull(),
+    maxDepositCap: numeric('max_deposit_cap', { precision: 78, scale: 0 }).notNull(),
+    oracleConfig: jsonb('oracle_config'),
+    indexedThroughBlock: numeric('indexed_through_block', { precision: 78, scale: 0 }).notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.chainId, t.poolId] })],
+);
+
+export const tokens = pgTable(
+  'v2_tokens',
+  {
+    chainId: bigint('chain_id', { mode: 'number' }).notNull(),
+    address: text('address').notNull(),
+    symbol: text('symbol').notNull(),
+    decimals: integer('decimals').notNull(),
+    indexedThroughBlock: numeric('indexed_through_block', { precision: 78, scale: 0 }).notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.chainId, t.address] })],
+);
+
+export const vaultBands = pgTable(
+  'v2_vault_bands',
+  {
+    chainId: bigint('chain_id', { mode: 'number' }).notNull(),
+    vaultAddress: text('vault_address').notNull(),
+    bandIndex: integer('band_index').notNull(),
+    tickLower: integer('tick_lower').notNull(),
+    tickUpper: integer('tick_upper').notNull(),
+    tokenId: numeric('token_id', { precision: 78, scale: 0 }).notNull(),
+    liquidity: numeric('liquidity', { precision: 78, scale: 0 }).notNull(),
+    role: text('role').notNull(),
+    indexedThroughBlock: numeric('indexed_through_block', { precision: 78, scale: 0 }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.chainId, t.vaultAddress, t.bandIndex] })],
+);
+
+export const activities = pgTable(
+  'v2_activities',
+  {
+    chainId: bigint('chain_id', { mode: 'number' }).notNull(),
+    transactionHash: text('transaction_hash').notNull(),
+    logIndex: integer('log_index').notNull(),
+    blockHash: text('block_hash').notNull(),
+    blockNumber: numeric('block_number', { precision: 78, scale: 0 }).notNull(),
+    vaultAddress: text('vault_address').notNull(),
+    kind: text('kind').notNull(),
+    actor: text('actor'),
+    receiver: text('receiver'),
+    amounts: jsonb('amounts').notNull().default({}),
+    finality: text('finality').notNull(),
+    canonical: boolean('canonical').notNull().default(true),
+    createdAt,
+  },
+  (t) => [
+    primaryKey({ columns: [t.chainId, t.transactionHash, t.logIndex, t.blockHash] }),
+    index('v2_activities_vault_block_idx').on(
+      t.chainId,
+      t.vaultAddress,
+      t.canonical,
+      t.blockNumber,
+      t.logIndex,
+    ),
+  ],
+);
+
+export const rebalances = pgTable(
+  'v2_rebalances',
+  {
+    chainId: bigint('chain_id', { mode: 'number' }).notNull(),
+    transactionHash: text('transaction_hash').notNull(),
+    logIndex: integer('log_index').notNull(),
+    blockHash: text('block_hash').notNull(),
+    vaultAddress: text('vault_address').notNull(),
+    blockNumber: numeric('block_number', { precision: 78, scale: 0 }).notNull(),
+    detail: jsonb('detail').notNull(),
+    finality: text('finality').notNull(),
+    canonical: boolean('canonical').notNull().default(true),
+    createdAt,
+  },
+  (t) => [
+    primaryKey({ columns: [t.chainId, t.transactionHash, t.logIndex, t.blockHash] }),
+    index('v2_rebalances_vault_block_idx').on(t.chainId, t.vaultAddress, t.canonical, t.blockNumber, t.logIndex),
+  ],
+);
+
+export const feeCollections = pgTable(
+  'v2_fee_collections',
+  {
+    chainId: bigint('chain_id', { mode: 'number' }).notNull(),
+    transactionHash: text('transaction_hash').notNull(),
+    logIndex: integer('log_index').notNull(),
+    blockHash: text('block_hash').notNull(),
+    vaultAddress: text('vault_address').notNull(),
+    amount0: numeric('amount0', { precision: 78, scale: 0 }).notNull(),
+    amount1: numeric('amount1', { precision: 78, scale: 0 }).notNull(),
+    protocolFee0: numeric('protocol_fee0', { precision: 78, scale: 0 }).notNull(),
+    protocolFee1: numeric('protocol_fee1', { precision: 78, scale: 0 }).notNull(),
+    blockNumber: numeric('block_number', { precision: 78, scale: 0 }).notNull(),
+    finality: text('finality').notNull(),
+    canonical: boolean('canonical').notNull().default(true),
+    createdAt,
+  },
+  (t) => [
+    primaryKey({ columns: [t.chainId, t.transactionHash, t.logIndex, t.blockHash] }),
+    index('v2_fee_collections_vault_block_idx').on(
+      t.chainId,
+      t.vaultAddress,
+      t.canonical,
+      t.blockNumber,
+      t.logIndex,
+    ),
+  ],
+);
+
+export const vaultSnapshots = pgTable(
+  'v2_vault_snapshots',
+  {
+    chainId: bigint('chain_id', { mode: 'number' }).notNull(),
+    vaultAddress: text('vault_address').notNull(),
+    bucket: timestamp('bucket', { withTimezone: true }).notNull(),
+    blockNumber: numeric('block_number', { precision: 78, scale: 0 }).notNull(),
+    totalShares: numeric('total_shares', { precision: 78, scale: 0 }).notNull(),
+    totalAssets: numeric('total_assets', { precision: 78, scale: 0 }).notNull(),
+    totalAssets0: numeric('total_assets0', { precision: 78, scale: 0 }),
+    totalAssets1: numeric('total_assets1', { precision: 78, scale: 0 }),
+    sqrtPriceX96: numeric('sqrt_price_x96', { precision: 78, scale: 0 }),
+    poolTick: integer('pool_tick'),
+    inRange: boolean('in_range'),
+    createdAt,
+  },
+  (t) => [primaryKey({ columns: [t.chainId, t.vaultAddress, t.bucket] })],
+);
+
+export const prices = pgTable(
+  'v2_prices',
+  {
+    chainId: bigint('chain_id', { mode: 'number' }).notNull(),
+    tokenAddress: text('token_address').notNull(),
+    source: text('source').notNull(),
+    observedAt: timestamp('observed_at', { withTimezone: true }).notNull(),
+    usdX18: numeric('usd_x18', { precision: 78, scale: 0 }).notNull(),
+    createdAt,
+  },
+  (t) => [primaryKey({ columns: [t.chainId, t.tokenAddress, t.source, t.observedAt] })],
 );

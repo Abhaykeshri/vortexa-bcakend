@@ -24,12 +24,21 @@ const expected = [
   'indexer_worker_state',
   'm7_projection_state',
   'm7_projection_events',
+  'v2_pools',
+  'v2_tokens',
+  'v2_vault_bands',
+  'v2_activities',
+  'v2_rebalances',
+  'v2_fee_collections',
+  'v2_vault_snapshots',
+  'v2_prices',
 ];
 const expectedMigrations = [
   '0001_m0_m5_foundation',
   '0002_m6_indexer',
   '0003_m5_outbox_m6_fencing',
   '0004_m7_vault_catalog',
+  '0005_v2_ui_read_models',
 ];
 const config = loadConfig(undefined, undefined, 'tool');
 if (!config.databaseUrl) throw new Error('DATABASE_URL is required');

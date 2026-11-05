@@ -23,6 +23,16 @@ function nullableBigint(value: unknown): bigint | null {
   return value === undefined || value === null ? null : bigint(value, 'optional quantity');
 }
 
+function text(value: unknown, label: string): string {
+  if (typeof value !== 'string' || value.length === 0 || value.length > 128) throw new Error(`Invalid ${label}`);
+  return value;
+}
+
+function integer(value: unknown, label: string): number {
+  if (typeof value !== 'number' || !Number.isSafeInteger(value)) throw new Error(`Invalid ${label}`);
+  return value;
+}
+
 function jsonSafe(value: unknown): unknown {
   if (typeof value === 'bigint') return value.toString();
   if (Array.isArray(value)) return value.map(jsonSafe);
@@ -63,6 +73,12 @@ export class ViemPinnedVaultStateReader implements PinnedVaultStateReaderPort {
       totalAssets0: accountingAvailable ? nullableBigint(info.totalAssets0) : null,
       totalAssets1: accountingAvailable ? nullableBigint(info.totalAssets1) : null,
       accountingAvailable,
+      name: text(info.name, 'vault name'),
+      symbol: text(info.symbol, 'vault symbol'),
+      manager: address(info.manager, 'vault manager'),
+      paused: info.paused === true,
+      inRange: info.inRange === true,
+      poolTick: integer(info.poolTick, 'pool tick'),
     };
   }
 

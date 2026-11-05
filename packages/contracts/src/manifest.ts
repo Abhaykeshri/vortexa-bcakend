@@ -12,6 +12,16 @@ export interface DeploymentManifest {
   readonly chainId: number;
   readonly network: string;
   readonly contracts: Readonly<Record<string, ManifestContract>>;
+  readonly factoryStartBlock?: number;
+  readonly pools?: readonly {
+    readonly id: `0x${string}`;
+    readonly label: string;
+    readonly currency0: `0x${string}`;
+    readonly currency1: `0x${string}`;
+    readonly fee: number;
+    readonly tickSpacing: number;
+    readonly hooks: `0x${string}`;
+  }[];
 }
 
 /**
@@ -37,6 +47,24 @@ export function loadManifest(path = 'packages/contracts/manifests/sepolia-v1.jso
       (contract.runtimeCodeHash !== undefined && !/^0x[a-fA-F0-9]{64}$/.test(contract.runtimeCodeHash))
     )
       throw new Error(`Invalid manifest contract: ${key}`);
+  }
+  if (
+    parsed.factoryStartBlock !== undefined &&
+    (!Number.isSafeInteger(parsed.factoryStartBlock) || parsed.factoryStartBlock < 0)
+  )
+    throw new Error('Invalid factory start block');
+  for (const pool of parsed.pools ?? []) {
+    if (
+      !/^0x[a-fA-F0-9]{64}$/.test(pool.id) ||
+      !pool.label ||
+      !/^0x[a-fA-F0-9]{40}$/.test(pool.currency0) ||
+      !/^0x[a-fA-F0-9]{40}$/.test(pool.currency1) ||
+      !Number.isSafeInteger(pool.fee) ||
+      !Number.isSafeInteger(pool.tickSpacing) ||
+      pool.tickSpacing <= 0 ||
+      !/^0x[a-fA-F0-9]{40}$/.test(pool.hooks)
+    )
+      throw new Error('Invalid manifest pool');
   }
   return parsed as DeploymentManifest;
 }

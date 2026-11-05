@@ -13,6 +13,7 @@ const migrations = [
   '0002_m6_indexer',
   '0003_m5_outbox_m6_fencing',
   '0004_m7_vault_catalog',
+  '0005_v2_ui_read_models',
 ];
 const pool = new pg.Pool({
   connectionString: config.databaseUrl,

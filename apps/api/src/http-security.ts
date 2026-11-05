@@ -42,7 +42,9 @@ export function responseWithRequestId(data: unknown, requestId: string): unknown
 type RoutePolicy = {
   browser: boolean;
   internal: boolean;
-  rateLimit?: 'network' | 'chain' | 'contracts' | 'vaultRead' | 'vaultEvents' | 'walletPositions';
+  methods?: readonly ('GET' | 'POST')[];
+  rateLimit?:
+    'network' | 'chain' | 'contracts' | 'vaultRead' | 'vaultEvents' | 'walletPositions' | 'transaction';
 };
 
 const policies: Record<string, RoutePolicy> = {
@@ -63,6 +65,14 @@ function policyFor(path: string): RoutePolicy | undefined {
     return { browser: true, internal: false, rateLimit: 'vaultEvents' };
   if (/^\/api\/v1\/wallets\/[^/]+\/positions$/.test(path))
     return { browser: true, internal: false, rateLimit: 'walletPositions' };
+  if (path === '/v1/openapi.json' || path === '/v1/shapes')
+    return { browser: true, internal: false, methods: ['GET'], rateLimit: 'vaultRead' };
+  if (path === '/v1/shapes/preview')
+    return { browser: true, internal: false, methods: ['POST'], rateLimit: 'transaction' };
+  if (/^\/v1\/chains\/[^/]+\/(?:quotes|tx)\//.test(path))
+    return { browser: true, internal: false, methods: ['POST'], rateLimit: 'transaction' };
+  if (/^\/v1\/chains\/[^/]+\//.test(path))
+    return { browser: true, internal: false, methods: ['GET'], rateLimit: 'vaultRead' };
   return undefined;
 }
 
@@ -106,6 +116,7 @@ function limitFor(config: Config, kind: NonNullable<RoutePolicy['rateLimit']>): 
   if (kind === 'contracts') return config.contractStatusRateLimit;
   if (kind === 'vaultEvents') return config.vaultEventRateLimit;
   if (kind === 'walletPositions') return config.walletPositionRateLimit;
+  if (kind === 'transaction') return config.vaultEventRateLimit;
   return config.vaultReadRateLimit;
 }
 
@@ -157,7 +168,10 @@ export async function enforceSecurity(
   if (request.method === 'OPTIONS') {
     if (!policy.browser || !request.origin || !config.corsAllowedOrigins.includes(request.origin))
       return reject(403, 'ORIGIN_NOT_ALLOWED');
-    if (request.requestedMethod !== 'GET') return reject(405, 'METHOD_NOT_ALLOWED');
+    const requestedMethod = request.requestedMethod?.toUpperCase();
+    const allowedMethods = policy.methods ?? ['GET'];
+    if (!requestedMethod || !allowedMethods.includes(requestedMethod as 'GET' | 'POST'))
+      return reject(405, 'METHOD_NOT_ALLOWED');
     const requestedHeaders = (request.requestedHeaders ?? '')
       .split(',')
       .map((value) => value.trim().toLowerCase())
@@ -169,7 +183,7 @@ export async function enforceSecurity(
       status: 204,
       headers: {
         ...corsHeaders(request.origin),
-        'Access-Control-Allow-Methods': 'GET',
+        'Access-Control-Allow-Methods': requestedMethod,
         'Access-Control-Allow-Headers': 'Accept, Content-Type',
         'Access-Control-Max-Age': '600',
       },

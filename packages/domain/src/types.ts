@@ -106,6 +106,12 @@ export interface VaultProjection {
   readonly strategy: Vault['strategy'];
   readonly strategyContract: Address;
   readonly shapeId: number | null;
+  readonly name?: string | null;
+  readonly symbol?: string | null;
+  readonly manager?: Address | null;
+  readonly paused?: boolean | null;
+  readonly inRange?: boolean | null;
+  readonly poolTick?: number | null;
   readonly config: Readonly<Record<string, unknown>> | null;
   readonly totalShares: bigint;
   readonly totalAssets: bigint | null;
@@ -169,6 +175,12 @@ export interface PinnedVaultState {
   readonly totalAssets0: bigint | null;
   readonly totalAssets1: bigint | null;
   readonly accountingAvailable: boolean;
+  readonly name?: string;
+  readonly symbol?: string;
+  readonly manager?: Address;
+  readonly paused?: boolean;
+  readonly inRange?: boolean;
+  readonly poolTick?: number;
 }
 
 export interface PinnedWalletPosition {

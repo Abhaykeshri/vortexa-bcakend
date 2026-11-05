@@ -1,5 +1,6 @@
 import type { Config } from './config/env.js';
 import type { VaultQueryService } from '../../../packages/application/src/vault-query.service.js';
+import type { VaultUiService } from '../../../packages/application/src/vault-ui.service.js';
 
 export interface ChainReadPort {
   verifyNetwork(): Promise<void>;
@@ -23,6 +24,7 @@ export interface ApiDependencies {
   readonly contractReader: ContractReadPort;
   readonly contractRegistry: ContractRegistryPort;
   readonly vaultQueryService?: VaultQueryService;
+  readonly vaultUiService?: VaultUiService;
   readonly limiter?: import('./http-security.js').RateLimiter;
   readonly checkPostgres: () => Promise<boolean>;
   readonly checkRedis: () => Promise<boolean>;

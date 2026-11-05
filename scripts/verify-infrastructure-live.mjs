@@ -16,12 +16,16 @@ const suffix = randomUUID().replaceAll('-', '');
 const schema = `vortexa_verify_${suffix}`;
 if (!/^vortexa_verify_[a-f0-9]{32}$/.test(schema)) throw new Error('Unsafe verification schema');
 const migrations = await Promise.all(
-  ['0001_m0_m5_foundation', '0002_m6_indexer', '0003_m5_outbox_m6_fencing', '0004_m7_vault_catalog'].map(
-    async (version) => {
-      const sql = await readFile(`packages/adapters/migrations/${version}.sql`, 'utf8');
-      return { version, sql, checksum: createHash('sha256').update(sql).digest('hex') };
-    },
-  ),
+  [
+    '0001_m0_m5_foundation',
+    '0002_m6_indexer',
+    '0003_m5_outbox_m6_fencing',
+    '0004_m7_vault_catalog',
+    '0005_v2_ui_read_models',
+  ].map(async (version) => {
+    const sql = await readFile(`packages/adapters/migrations/${version}.sql`, 'utf8');
+    return { version, sql, checksum: createHash('sha256').update(sql).digest('hex') };
+  }),
 );
 const pool = new pg.Pool({
   connectionString: config.databaseUrl,

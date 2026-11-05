@@ -3,6 +3,18 @@
   "manifestVersion": "sepolia-v1-2026-11-04",
   "chainId": 11155111,
   "network": "sepolia",
+  "factoryStartBlock": 12060681,
+  "pools": [
+    {
+      "id": "0xf62c23238fee915b0359f746d028d276ec837d2afa7e1983e6e6efa20904b73e",
+      "label": "ETH / USDC",
+      "currency0": "0x0000000000000000000000000000000000000000",
+      "currency1": "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
+      "fee": 2345,
+      "tickSpacing": 25,
+      "hooks": "0x0000000000000000000000000000000000000000"
+    }
+  ],
   "contracts": {
     "PRICE_GUARD": { "name": "PriceGuard", "address": "0x5288B03FA0d74a7fE2d59611C360E50E77aC4bE3", "runtimeCodeHash": "0xdfc702a2f3c7fda354a37924f0714fe0f427c04ebb13007f9d243bee5fdaec80" },
     "SHAPE_LIBRARY": { "name": "ShapeLibrary", "address": "0xBc6D0A524d5DF7C6b86648564b05277d49B5c213", "runtimeCodeHash": "0x4d5d5503e92fa6e9f1e3db016400897a179923ac2657da838580e06e8dbf1456" },

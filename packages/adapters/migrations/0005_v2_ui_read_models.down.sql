@@ -1,0 +1,15 @@
+DROP TABLE v2_prices;
+DROP TABLE v2_vault_snapshots;
+DROP TABLE v2_fee_collections;
+DROP TABLE v2_rebalances;
+DROP TABLE v2_activities;
+DROP TABLE v2_vault_bands;
+DROP TABLE v2_tokens;
+DROP TABLE v2_pools;
+ALTER TABLE vaults
+  DROP COLUMN pool_tick,
+  DROP COLUMN in_range,
+  DROP COLUMN paused,
+  DROP COLUMN manager,
+  DROP COLUMN symbol,
+  DROP COLUMN name;

@@ -3,6 +3,8 @@ import type { ErrorRequestHandler, NextFunction, Request, RequestHandler, Respon
 import { rateLimit as expressRateLimit, type Options, type Store } from 'express-rate-limit';
 import helmet from 'helmet';
 import cors from 'cors';
+import { ZodError } from 'zod';
+import { DomainError } from '../../../../packages/domain/src/errors.js';
 import type { ApiDependencies } from '../api-dependencies.js';
 import {
   enforceSecurity,
@@ -185,7 +187,7 @@ export function corsMiddleware(allowedOrigins: readonly string[]): RequestHandle
     origin(origin, callback) {
       callback(null, !origin || allowedOrigins.includes(origin));
     },
-    methods: ['GET'],
+    methods: ['GET', 'POST'],
     allowedHeaders: ['Accept', 'Content-Type'],
     credentials: false,
     preflightContinue: true,
@@ -194,7 +196,7 @@ export function corsMiddleware(allowedOrigins: readonly string[]): RequestHandle
 }
 
 export function methodGuard(req: Request, res: Response, next: NextFunction): void {
-  if (req.method === 'GET') next();
+  if (req.method === 'GET' || (req.method === 'POST' && req.path.startsWith('/v1/'))) next();
   else presentJson(res, 405, { error: 'METHOD_NOT_ALLOWED' });
 }
 
@@ -218,6 +220,18 @@ export function errorHandler(dependencies: ApiDependencies): ErrorRequestHandler
     }
     if (error instanceof SecurityDependencyUnavailableError) {
       presentJson(res, 503, { error: 'SECURITY_DEPENDENCY_UNAVAILABLE' });
+      return;
+    }
+    if (error instanceof ZodError) {
+      presentJson(res, 400, {
+        error: 'INVALID_INPUT',
+        issues: error.issues.map((issue) => ({ path: issue.path.join('.'), code: issue.code })),
+      });
+      return;
+    }
+    if (error instanceof DomainError) {
+      const status = error.code === 'NOT_FOUND' ? 404 : error.code === 'STALE_STATE' ? 503 : 400;
+      presentJson(res, status, { error: error.code });
       return;
     }
     if (

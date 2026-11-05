@@ -151,6 +151,8 @@ Do not run migration or infrastructure verification commands against production 
 ## Documentation
 
 - [Express migration and QA](docs/EXPRESS_MIGRATION_QA_REPORT.md)
+- [V2 UI API and frontend integration](docs/V2_UI_API.md)
+- [V2 indexer catch-up plan](docs/V2_INDEXER_CATCHUP_PLAN.md)
 - [Blockchain indexer architecture](docs/BLOCKCHAIN_INDEXER_ARCHITECTURE.md)
 - [Reorg recovery](docs/REORG_RECOVERY.md)
 - [Indexer replay and reconciliation](docs/INDEXER_REPLAY_AND_RECONCILIATION.md)

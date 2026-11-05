@@ -12,6 +12,9 @@ import {
 } from '../../../packages/adapters/src/chain-registry.js';
 import { DrizzleVaultProjectionRepository } from '../../../packages/adapters/src/postgres/vault-projection.repository.js';
 import { VaultQueryService } from '../../../packages/application/src/vault-query.service.js';
+import { VaultUiService } from '../../../packages/application/src/vault-ui.service.js';
+import { ViemVaultUiAdapter } from '../../../packages/adapters/src/viem-vault-ui.adapter.js';
+import type { PoolDescriptor } from '../../../packages/domain/src/vault-ui.js';
 import { createApp } from './app.js';
 import { loadConfig } from './config/env.js';
 import type { ApiDependencies } from './api-dependencies.js';
@@ -76,27 +79,46 @@ async function start(): Promise<void> {
     }
   }
   const repository = postgresPool ? new DrizzleVaultProjectionRepository(postgresPool) : undefined;
+  const poolRegistry: PoolDescriptor[] = (config.manifest.pools ?? []).map((pool) => ({
+    id: pool.id,
+    label: pool.label,
+    key: {
+      currency0: pool.currency0,
+      currency1: pool.currency1,
+      fee: pool.fee,
+      tickSpacing: pool.tickSpacing,
+      hooks: pool.hooks,
+    },
+  }));
+  const vaultUiChain = new ViemVaultUiAdapter(
+    config.rpcUrls,
+    config.chainId,
+    {
+      VAULT_FACTORY: config.contracts.VAULT_FACTORY,
+      VAULT_LENS: config.contracts.VAULT_LENS,
+      ZAP: config.contracts.ZAP,
+      SHAPE_LIBRARY: config.contracts.SHAPE_LIBRARY,
+      PRICE_GUARD: config.contracts.PRICE_GUARD,
+      VAULT_M5_MODULE: config.contracts.VAULT_M5_MODULE,
+      VAULT_M6_MODULE: config.contracts.VAULT_M6_MODULE,
+    },
+    poolRegistry,
+  );
+  const projectionQueries = repository
+    ? new VaultQueryService(repository, chain, responseCache, config.projectionStaleAfterBlocks, {
+        vaults: config.vaultListCacheTtlSeconds,
+        detail: config.vaultDetailCacheTtlSeconds,
+        events: config.vaultEventsCacheTtlSeconds,
+        positions: config.walletPositionsCacheTtlSeconds,
+      })
+    : undefined;
   const dependencies: ApiDependencies = {
     config,
     chain,
     contractReader,
     contractRegistry,
-    ...(repository
-      ? {
-          vaultQueryService: new VaultQueryService(
-            repository,
-            chain,
-            responseCache,
-            config.projectionStaleAfterBlocks,
-            {
-              vaults: config.vaultListCacheTtlSeconds,
-              detail: config.vaultDetailCacheTtlSeconds,
-              events: config.vaultEventsCacheTtlSeconds,
-              positions: config.walletPositionsCacheTtlSeconds,
-            },
-          ),
-        }
-      : {}),
+    ...(projectionQueries ? { vaultQueryService: projectionQueries } : {}),
+    vaultUiService: new VaultUiService(config.chainId, vaultUiChain, projectionQueries, responseCache),
     ...(responseCache ? { limiter: responseCache } : {}),
     checkPostgres: () => (config.databaseUrl ? checkPostgres(config.databaseUrl) : Promise.resolve(false)),
     checkRedis: () => (config.redisUrl ? checkRedis(config.redisUrl) : Promise.resolve(false)),

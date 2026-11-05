@@ -18,6 +18,18 @@ import type {
   VaultProjectionEvent,
   WalletVaultPosition,
 } from './types.js';
+import type {
+  CreateVaultCommand,
+  DepositCommand,
+  ManagerRebalanceCommand,
+  ManagerUpdateCommand,
+  PoolDescriptor,
+  PoolKey,
+  PoolStatus,
+  TransactionPlan,
+  VaultConfigInput,
+  WithdrawCommand,
+} from './vault-ui.js';
 export interface VaultReaderPort {
   getVault(chainId: ChainId, vault: Address): Promise<Vault | null>;
 }
@@ -106,4 +118,34 @@ export interface PinnedProjectionWriterPort {
     vaults: readonly PinnedVaultState[];
     positions: readonly PinnedWalletPosition[];
   }): Promise<void>;
+}
+
+/** Read and unsigned-transaction boundary used by the four V2 vault screens. */
+export interface VaultUiChainPort {
+  listPools(): Promise<readonly PoolStatus[]>;
+  listShapes(): Promise<readonly { id: number; valid: boolean }[]>;
+  previewShape(input: {
+    shapeId: number;
+    centerTick: number;
+    ticksLeft: number;
+    ticksRight: number;
+    tickSpacing: number;
+  }): Promise<{ bands: readonly unknown[]; weights: readonly number[] }>;
+  validateConfig(config: VaultConfigInput): Promise<{
+    pool: PoolStatus;
+    violations: readonly { field: string; code: string }[];
+  }>;
+  vaultInfo(vault: Address): Promise<unknown>;
+  userPosition(vault: Address, user: Address): Promise<unknown>;
+  walletBalances(vault: Address, user: Address): Promise<unknown>;
+  buildCreate(command: CreateVaultCommand): Promise<TransactionPlan>;
+  buildDeposit(command: DepositCommand): Promise<TransactionPlan>;
+  buildWithdraw(command: WithdrawCommand): Promise<TransactionPlan>;
+  buildManagerUpdate(command: ManagerUpdateCommand): Promise<TransactionPlan>;
+  buildManagerRebalance(command: ManagerRebalanceCommand): Promise<TransactionPlan>;
+}
+
+export interface PoolRegistryPort {
+  readonly pools: readonly PoolDescriptor[];
+  find(key: PoolKey): PoolDescriptor | undefined;
 }
