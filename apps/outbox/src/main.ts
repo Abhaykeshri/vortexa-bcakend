@@ -53,6 +53,8 @@ async function start() {
         failures++;
         log('error', 'outbox_batch_failed', {
           errorType: error instanceof Error ? error.name : 'unknown',
+          errorCode: safeErrorCode(error),
+          failureCategory: safeFailureCategory(error),
           failures,
         });
         await wait(Math.min(1000 * 2 ** Math.min(failures - 1, 5), 30000), controller.signal);
@@ -72,6 +74,24 @@ async function start() {
     }
     log('info', 'outbox_worker_stopped');
   }
+}
+
+// Keep diagnostics useful without logging database URLs, RPC paths, or raw messages.
+function safeErrorCode(error: unknown): string | undefined {
+  if (!error || typeof error !== 'object' || !('code' in error)) return undefined;
+  const code = (error as { code?: unknown }).code;
+  return typeof code === 'string' && /^[A-Z0-9_]+$/.test(code) ? code : undefined;
+}
+
+function safeFailureCategory(error: unknown): string {
+  const message = error instanceof Error ? error.message : '';
+  if (/timeout|timed out|ETIMEDOUT/i.test(message)) return 'dependency_timeout';
+  if (/ECONNREFUSED/i.test(message)) return 'connection_refused';
+  if (/ENOTFOUND|EAI_AGAIN/i.test(message)) return 'dns_failure';
+  if (/password authentication|no pg_hba/i.test(message)) return 'database_access_denied';
+  if (/relation .* does not exist|column .* does not exist|undefined_table|undefined_column/i.test(message))
+    return 'database_schema_mismatch';
+  return 'operation_failed';
 }
 
 function wait(milliseconds: number, signal: AbortSignal): Promise<void> {

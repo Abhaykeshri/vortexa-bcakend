@@ -4,7 +4,7 @@ import { createClient } from 'redis';
 export async function checkPostgres(databaseUrl: string): Promise<boolean> {
   const pool = new Pool({
     connectionString: databaseUrl,
-    connectionTimeoutMillis: 5000,
+    connectionTimeoutMillis: 20000,
     max: 1,
   });
 

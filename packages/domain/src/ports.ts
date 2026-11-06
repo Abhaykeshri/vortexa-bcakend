@@ -13,6 +13,7 @@ import type {
   UnsignedIntent,
   Vault,
   VaultEventCursor,
+  VaultHistoricalSnapshot,
   VaultListCursor,
   VaultProjection,
   VaultProjectionEvent,
@@ -97,6 +98,11 @@ export interface VaultCatalogRepositoryPort {
     limit: number,
   ): Promise<readonly WalletVaultPosition[]>;
   listVaultHolders(chainId: ChainId, vault: Address): Promise<readonly WalletVaultPosition[]>;
+  listVaultSnapshots(
+    chainId: ChainId,
+    vault: Address,
+    limit: number,
+  ): Promise<readonly VaultHistoricalSnapshot[]>;
 }
 
 export interface PinnedVaultStateReaderPort {

@@ -9,6 +9,7 @@ import type {
   ProjectionFinality,
   ProjectionState,
   VaultEventCursor,
+  VaultHistoricalSnapshot,
   VaultListCursor,
   VaultProjection,
   VaultProjectionEvent,
@@ -271,8 +272,40 @@ export class DrizzleVaultProjectionRepository
     }));
   }
 
+  async listVaultSnapshots(
+    chainId: ChainId,
+    vault: Address,
+    limit: number,
+  ): Promise<readonly VaultHistoricalSnapshot[]> {
+    const rows = await this.db
+      .select()
+      .from(schema.vaultSnapshots)
+      .where(
+        and(
+          eq(schema.vaultSnapshots.chainId, chainId),
+          eq(schema.vaultSnapshots.vaultAddress, vault.toLowerCase()),
+        ),
+      )
+      .orderBy(desc(schema.vaultSnapshots.bucket))
+      .limit(limit);
+    return rows.reverse().map((row) => ({
+      chainId: row.chainId as ChainId,
+      vaultAddress: requiredAddress(row.vaultAddress, 'snapshot vault'),
+      bucket: row.bucket,
+      blockNumber: BigInt(row.blockNumber),
+      totalShares: BigInt(row.totalShares),
+      totalAssets: BigInt(row.totalAssets),
+      totalAssets0: row.totalAssets0 === null ? null : BigInt(row.totalAssets0),
+      totalAssets1: row.totalAssets1 === null ? null : BigInt(row.totalAssets1),
+      poolTick: row.poolTick,
+      inRange: row.inRange,
+    }));
+  }
+
   async savePinnedSnapshot(input: Parameters<PinnedProjectionWriterPort['savePinnedSnapshot']>[0]) {
     await this.db.transaction(async (transaction) => {
+      const bucket = new Date();
+      bucket.setUTCSeconds(0, 0);
       for (const pinned of input.vaults) {
         const rawShape = pinned.config.shapeId;
         const shapeId =
@@ -313,6 +346,38 @@ export class DrizzleVaultProjectionRepository
           )
           .returning({ address: schema.vaults.address });
         if (result.length !== 1) throw new Error('Pinned vault projection target missing');
+        if (input.finality === 'FINALIZED')
+          await transaction
+            .insert(schema.vaultSnapshots)
+            .values({
+              chainId: input.chainId,
+              vaultAddress: pinned.vaultAddress.toLowerCase(),
+              bucket,
+              blockNumber: input.blockNumber.toString(),
+              totalShares: pinned.totalShares.toString(),
+              totalAssets: pinned.totalAssets.toString(),
+              totalAssets0: pinned.totalAssets0?.toString() ?? null,
+              totalAssets1: pinned.totalAssets1?.toString() ?? null,
+              sqrtPriceX96: null,
+              poolTick: pinned.poolTick ?? null,
+              inRange: pinned.inRange ?? null,
+            })
+            .onConflictDoUpdate({
+              target: [
+                schema.vaultSnapshots.chainId,
+                schema.vaultSnapshots.vaultAddress,
+                schema.vaultSnapshots.bucket,
+              ],
+              set: {
+                blockNumber: input.blockNumber.toString(),
+                totalShares: pinned.totalShares.toString(),
+                totalAssets: pinned.totalAssets.toString(),
+                totalAssets0: pinned.totalAssets0?.toString() ?? null,
+                totalAssets1: pinned.totalAssets1?.toString() ?? null,
+                poolTick: pinned.poolTick ?? null,
+                inRange: pinned.inRange ?? null,
+              },
+            });
       }
       for (const pinned of input.positions) {
         const result = await transaction

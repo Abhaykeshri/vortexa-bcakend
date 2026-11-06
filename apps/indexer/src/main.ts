@@ -241,7 +241,27 @@ void start().catch((error: unknown) => {
       level: 'error',
       event: 'indexer_start_failed',
       errorType: error instanceof Error ? error.name : 'unknown',
+      errorCode: safeErrorCode(error),
+      failureCategory: safeFailureCategory(error),
     }),
   );
   process.exitCode = 1;
 });
+
+// Keep diagnostics useful without logging database URLs, RPC paths, or raw messages.
+function safeErrorCode(error: unknown): string | undefined {
+  if (!error || typeof error !== 'object' || !('code' in error)) return undefined;
+  const code = (error as { code?: unknown }).code;
+  return typeof code === 'string' && /^[A-Z0-9_]+$/.test(code) ? code : undefined;
+}
+
+function safeFailureCategory(error: unknown): string {
+  const message = error instanceof Error ? error.message : '';
+  if (/timeout|timed out|ETIMEDOUT/i.test(message)) return 'dependency_timeout';
+  if (/ECONNREFUSED/i.test(message)) return 'connection_refused';
+  if (/ENOTFOUND|EAI_AGAIN/i.test(message)) return 'dns_failure';
+  if (/password authentication|no pg_hba/i.test(message)) return 'database_access_denied';
+  if (/relation .* does not exist|column .* does not exist|undefined_table|undefined_column/i.test(message))
+    return 'database_schema_mismatch';
+  return 'operation_failed';
+}

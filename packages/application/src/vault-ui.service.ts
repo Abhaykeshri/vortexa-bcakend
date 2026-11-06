@@ -149,26 +149,33 @@ export class VaultUiService {
         const sign = compared < 0n ? -1 : compared > 0n ? 1 : 0;
         return input.direction === 'asc' ? sign : -sign;
       });
-    const availableTvl = data.map((vault) => vault.totalAssets).filter((value): value is string => value !== null);
-    const groupedPairCounts = Object.entries(data.reduce<Record<string, number>>((counts, vault) => {
-      counts[vault.poolId] = (counts[vault.poolId] ?? 0) + 1;
-      return counts;
-    }, {}));
+    const availableTvl = data
+      .map((vault) => vault.totalAssets)
+      .filter((value): value is string => value !== null);
+    const groupedPairCounts = Object.entries(
+      data.reduce<Record<string, number>>((counts, vault) => {
+        counts[vault.poolId] = (counts[vault.poolId] ?? 0) + 1;
+        return counts;
+      }, {}),
+    );
     const knownPaused = data.filter((vault) => vault.paused !== null && vault.paused !== undefined);
     return {
       ...page,
       summary: {
         scope: 'CURRENT_PAGE',
-        totalTvlRaw: availableTvl.length === data.length
-          ? availableTvl.reduce((sum, value) => sum + BigInt(value), 0n).toString()
-          : null,
-        activeVaultCount: knownPaused.length === data.length ? data.filter((vault) => vault.paused !== true).length : null,
+        totalTvlRaw:
+          availableTvl.length === data.length
+            ? availableTvl.reduce((sum, value) => sum + BigInt(value), 0n).toString()
+            : null,
+        activeVaultCount:
+          knownPaused.length === data.length ? data.filter((vault) => vault.paused !== true).length : null,
         volume24hUsd: null,
         averageApr: null,
         groupedPairCounts: Object.fromEntries(groupedPairCounts),
         availability: {
           totalTvlRaw: availableTvl.length === data.length ? 'AVAILABLE' : 'ACCOUNTING_UNAVAILABLE',
-          activeVaultCount: knownPaused.length === data.length ? 'AVAILABLE' : 'ACTIVE_STATE_PROJECTION_UNAVAILABLE',
+          activeVaultCount:
+            knownPaused.length === data.length ? 'AVAILABLE' : 'ACTIVE_STATE_PROJECTION_UNAVAILABLE',
           volume24hUsd: 'HISTORY_UNAVAILABLE',
           averageApr: 'HISTORY_UNAVAILABLE',
         },
@@ -201,21 +208,29 @@ export class VaultUiService {
       this.chain.listPools(),
     ]);
     const info = live as {
-      config?: { poolKey?: { currency0?: Address; currency1?: Address; fee?: number; tickSpacing?: number; hooks?: Address } };
+      config?: {
+        poolKey?: {
+          currency0?: Address;
+          currency1?: Address;
+          fee?: number;
+          tickSpacing?: number;
+          hooks?: Address;
+        };
+      };
       protocolFeeBps?: bigint;
       poolTick?: number;
       bands?: Array<{ tickLower?: number; tickUpper?: number; tokenId?: bigint; liquidity?: bigint }>;
     };
     const key = info.config?.poolKey;
     const pool = key
-      ? pools.find(
+      ? (pools.find(
           (candidate) =>
             candidate.key.currency0.toLowerCase() === key.currency0?.toLowerCase() &&
             candidate.key.currency1.toLowerCase() === key.currency1?.toLowerCase() &&
             candidate.key.fee === key.fee &&
             candidate.key.tickSpacing === key.tickSpacing &&
             candidate.key.hooks.toLowerCase() === key.hooks?.toLowerCase(),
-        ) ?? null
+        ) ?? null)
       : null;
     const displayPrice =
       pool && typeof info.poolTick === 'number'
@@ -286,6 +301,7 @@ export class VaultUiService {
   ): Promise<unknown> {
     this.assertChain(chainId);
     await this.chain.vaultInfo(vault);
+    if (kind === 'history' && this.projections) return this.projections.vaultHistory(chainId, vault);
     return {
       data: [],
       available: false,
@@ -299,6 +315,12 @@ export class VaultUiService {
 
   async quoteDeposit(command: DepositCommand): Promise<unknown> {
     const plan = await this.chain.buildDeposit(command);
+    const failedStep = plan.steps.find((step) => step.simulation.status === 'FAILED');
+    if (failedStep)
+      throw new DomainError(
+        'INVALID_INPUT',
+        failedStep.simulation.revert ?? 'Deposit transaction simulation failed',
+      );
     return jsonSafe({
       blockNumber: plan.blockNumber,
       expiresAfterBlock: plan.expiresAfterBlock,

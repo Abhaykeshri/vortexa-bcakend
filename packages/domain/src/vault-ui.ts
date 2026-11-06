@@ -181,9 +181,18 @@ export const VOLATILITY_PRESETS = [
 ] as const;
 
 /** Exact decimal formatting for display only; transaction values remain raw bigint strings. */
-export function formatTokenAmount(raw: bigint, decimals: number, maximumFractionDigits = 8): string {
-  if (!Number.isInteger(decimals) || decimals < 0 || decimals > 255) throw new Error('Invalid token decimals');
-  if (!Number.isInteger(maximumFractionDigits) || maximumFractionDigits < 0 || maximumFractionDigits > decimals)
+export function formatTokenAmount(
+  raw: bigint,
+  decimals: number,
+  maximumFractionDigits = Math.min(8, decimals),
+): string {
+  if (!Number.isInteger(decimals) || decimals < 0 || decimals > 255)
+    throw new Error('Invalid token decimals');
+  if (
+    !Number.isInteger(maximumFractionDigits) ||
+    maximumFractionDigits < 0 ||
+    maximumFractionDigits > decimals
+  )
     throw new Error('Invalid display precision');
   const negative = raw < 0n;
   const absolute = negative ? -raw : raw;
@@ -209,11 +218,16 @@ export function validateVaultConfig(
   const add = (field: ConfigViolation['field'], code: ConfigViolation['code']) =>
     result.push({ field, code });
   const spacing = config.poolKey.tickSpacing;
+  const validRange =
+    config.strategy === 1
+      ? config.ticksLeft > 0 && config.ticksRight === 0
+      : config.strategy === 2
+        ? config.ticksLeft === 0 && config.ticksRight > 0
+        : config.ticksLeft > 0 && config.ticksRight > 0;
   if (
     spacing <= 0 ||
     config.centerTick % spacing !== 0 ||
-    config.ticksLeft <= 0 ||
-    config.ticksRight <= 0 ||
+    !validRange ||
     config.ticksLeft % spacing !== 0 ||
     config.ticksRight % spacing !== 0
   )

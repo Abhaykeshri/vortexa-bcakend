@@ -183,6 +183,19 @@ export interface PinnedVaultState {
   readonly poolTick?: number;
 }
 
+export interface VaultHistoricalSnapshot {
+  readonly chainId: ChainId;
+  readonly vaultAddress: Address;
+  readonly bucket: Date;
+  readonly blockNumber: bigint;
+  readonly totalShares: bigint;
+  readonly totalAssets: bigint;
+  readonly totalAssets0: bigint | null;
+  readonly totalAssets1: bigint | null;
+  readonly poolTick: number | null;
+  readonly inRange: boolean | null;
+}
+
 export interface PinnedWalletPosition {
   readonly vaultAddress: Address;
   readonly walletAddress: Address;

@@ -56,13 +56,13 @@ GET /v1/chains/11155111/vaults/0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/rebala
 GET /v1/chains/11155111/users/0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/positions?limit=25
 ```
 
-Detail is read live through `VaultLens.vaultInfo`; activity and positions use finalized PostgreSQL projections. History/rebalances return:
+Detail is read live through `VaultLens.vaultInfo`; activity and positions use finalized PostgreSQL projections. Vault history is sampled once per minute from finalized pinned projections and returns chronological snapshots with block number, token totals, pool tick, and range status. Until the indexer records the first finalized snapshot, history returns an empty page with `available: false` and `HISTORICAL_SNAPSHOTS_PENDING`. Rebalance history remains unavailable until its read model is wired:
 
 ```json
 {
   "data": [],
   "available": false,
-  "reason": "HISTORICAL_SNAPSHOTS_UNAVAILABLE",
+  "reason": "HISTORICAL_SNAPSHOTS_PENDING",
   "requestId": "<uuid>"
 }
 ```

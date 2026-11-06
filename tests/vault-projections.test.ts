@@ -110,6 +110,9 @@ class FakeRepository implements VaultCatalogRepositoryPort {
   async listVaultHolders() {
     return this.positions;
   }
+  async listVaultSnapshots() {
+    return [];
+  }
 }
 
 class FakeCache implements CachePort {

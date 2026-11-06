@@ -10,7 +10,7 @@ import type { VaultQueryService } from '../packages/application/src/vault-query.
 import { DomainError } from '../packages/domain/src/errors.js';
 import { loadManifest } from '../packages/contracts/src/manifest.js';
 import type { VaultUiChainPort } from '../packages/domain/src/ports.js';
-import type { TransactionPlan, VaultConfigInput } from '../packages/domain/src/vault-ui.js';
+import type { DepositCommand, TransactionPlan, VaultConfigInput } from '../packages/domain/src/vault-ui.js';
 import { validateVaultConfig } from '../packages/domain/src/vault-ui.js';
 
 const manifest = loadManifest();
@@ -112,10 +112,21 @@ class FakeVaultUiChain implements VaultUiChainPort {
     return { shares: 0n };
   }
   async walletBalances() {
-    return { token0: '0', token1: '0', shares: '0', token0Display: '0', token1Display: '0', sharesDisplay: '0' };
+    return {
+      token0: '0',
+      token1: '0',
+      shares: '0',
+      token0Display: '0',
+      token1Display: '0',
+      sharesDisplay: '0',
+    };
   }
-  async buildManagerUpdate() { return plan; }
-  async buildManagerRebalance() { return plan; }
+  async buildManagerUpdate() {
+    return plan;
+  }
+  async buildManagerRebalance() {
+    return plan;
+  }
   async buildCreate() {
     return plan;
   }
@@ -132,6 +143,11 @@ function dependencies(): ApiDependencies {
     listVaults: async () => ({ data: [], nextCursor: null, meta: projectionMeta }),
     vaultDetail: async () => ({ data: null, meta: projectionMeta }),
     vaultEvents: async () => ({ data: [], nextCursor: null, meta: projectionMeta }),
+    vaultHistory: async () => ({
+      data: [],
+      available: false,
+      reason: 'HISTORICAL_SNAPSHOTS_PENDING',
+    }),
     walletPositions: async () => ({ data: [], nextCursor: null, meta: projectionMeta }),
   } as unknown as VaultQueryService;
   const ui = new VaultUiService(11155111, new FakeVaultUiChain(), projection);
@@ -168,8 +184,71 @@ const projectionMeta = {
 
 test('vault config parity rules reject unsafe geometry and accept a valid base config', () => {
   assert.deepEqual(validateVaultConfig(vaultConfig, 1_000_000n), []);
+  assert.deepEqual(
+    validateVaultConfig(
+      {
+        ...vaultConfig,
+        strategy: 1,
+        ticksRight: 0,
+        trailTicks: 20,
+        limitWidthTicks: 0,
+      },
+      1_000_000n,
+    ),
+    [],
+  );
+  assert.deepEqual(
+    validateVaultConfig(
+      {
+        ...vaultConfig,
+        strategy: 2,
+        ticksLeft: 0,
+        trailTicks: 20,
+        limitWidthTicks: 0,
+      },
+      1_000_000n,
+    ),
+    [],
+  );
+  assert.ok(
+    validateVaultConfig({ ...vaultConfig, strategy: 1, trailTicks: 20 }, 1_000_000n).some(
+      (violation) => violation.code === 'InvalidGeometry',
+    ),
+  );
   assert.ok(validateVaultConfig({ ...vaultConfig, centerTick: -200001 }, 1_000_000n).length > 0);
   assert.ok(validateVaultConfig({ ...vaultConfig, carpetBps: 2501 }, 1_000_000n).length > 0);
+});
+
+test('deposit quotes reject a plan whose transaction simulation failed', async () => {
+  class FailedDepositChain extends FakeVaultUiChain {
+    override async buildDeposit(): Promise<TransactionPlan> {
+      return {
+        ...plan,
+        steps: [
+          {
+            ...plan.steps[0]!,
+            simulation: { status: 'FAILED', revert: 'SIMULATION_REVERTED' },
+          },
+        ],
+      };
+    }
+  }
+  const command: DepositCommand = {
+    chainId: 11155111,
+    mode: 'zapSingle',
+    vault: address('3'),
+    user: address('4'),
+    receiver: address('4'),
+    tokenIn: address('2'),
+    amountIn: 1n,
+    toleranceBps: 50,
+    swapSlippageBps: 50,
+  };
+  const service = new VaultUiService(11155111, new FailedDepositChain());
+  await assert.rejects(
+    service.quoteDeposit(command),
+    (error: unknown) => error instanceof DomainError && error.code === 'INVALID_INPUT',
+  );
 });
 
 test('OpenAPI publishes all four screen endpoint groups', () => {

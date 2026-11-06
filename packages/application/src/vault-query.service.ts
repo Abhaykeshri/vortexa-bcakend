@@ -319,6 +319,32 @@ export class VaultQueryService {
     return { ...cacheValue, meta: await this.meta(chainId, state) };
   }
 
+  /** Returns finalized periodic snapshots in chronological order for the history chart. */
+  async vaultHistory(
+    chainId: ChainId,
+    address: Address,
+    limit = 100,
+  ): Promise<{
+    data: readonly Record<string, string | number | boolean | null>[];
+    available: boolean;
+    reason?: string;
+  }> {
+    const rows = await this.repository.listVaultSnapshots(chainId, address, limit);
+    const data = rows.map((row) => ({
+      bucket: row.bucket.toISOString(),
+      blockNumber: row.blockNumber.toString(),
+      totalShares: row.totalShares.toString(),
+      totalAssets: row.totalAssets.toString(),
+      totalAssets0: row.totalAssets0?.toString() ?? null,
+      totalAssets1: row.totalAssets1?.toString() ?? null,
+      poolTick: row.poolTick,
+      inRange: row.inRange,
+    }));
+    return data.length
+      ? { data, available: true }
+      : { data, available: false, reason: 'HISTORICAL_SNAPSHOTS_PENDING' };
+  }
+
   /** Returns canonical vault events using a generation-scoped cursor. */
   async vaultEvents(
     chainId: ChainId,

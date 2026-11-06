@@ -91,6 +91,21 @@ const erc20Abi = [
   },
 ] as const;
 
+// The deployed V4 position/swap periphery can bubble this error through the
+// vault without declaring it in the vault ABI. Keep it in the decoder so the
+// API can surface a meaningful simulation result whenever the RPC preserves
+// revert data.
+const uniswapV4Errors = [
+  {
+    type: 'error',
+    name: 'V4TooLittleReceived',
+    inputs: [
+      { name: 'minAmountOutReceived', type: 'uint256' },
+      { name: 'amountReceived', type: 'uint256' },
+    ],
+  },
+] as const;
+
 function asBigInt(value: unknown, label: string): bigint {
   if (typeof value === 'bigint') return value;
   if (typeof value === 'number' && Number.isSafeInteger(value)) return BigInt(value);
@@ -182,6 +197,7 @@ export class ViemVaultUiAdapter implements VaultUiChainPort {
       ...this.abis.vaultM5,
       ...this.abis.zap,
       ...this.abis.priceGuard,
+      ...uniswapV4Errors,
     ];
   }
 
@@ -636,6 +652,11 @@ export class ViemVaultUiAdapter implements VaultUiChainPort {
         'zap quote',
       );
       expectedShares = asBigInt(quote[1], 'expected shares');
+      if (expectedShares <= 0n)
+        throw new DomainError(
+          'INVALID_INPUT',
+          'Single-token deposit produces zero shares; increase the amount or use pair mode',
+        );
       minimumShares = applyTolerance(expectedShares, command.toleranceBps);
       value = command.tokenIn.toLowerCase() === NATIVE_TOKEN ? command.amountIn : 0n;
       await this.nativeBalance(command.user, value);
@@ -674,6 +695,11 @@ export class ViemVaultUiAdapter implements VaultUiChainPort {
           'zap pair quote',
         );
         expectedShares = asBigInt(quote[1], 'expected shares');
+        if (expectedShares <= 0n)
+          throw new DomainError(
+            'INVALID_INPUT',
+            'Pair Zap deposit produces zero shares; increase the amounts or use direct pair mode',
+          );
         minimumShares = applyTolerance(expectedShares, command.toleranceBps);
         data = this.encode(this.abis.zap, 'zapDepositPair', [
           command.vault,
