@@ -239,12 +239,12 @@ test('concurrent rate-limit requests cannot exceed the configured threshold', as
   assert.equal(results.filter((result) => result.status === 429).length, 5);
 });
 
-test('Vault query routes are exact-origin protected and Redis rate limited before handlers', async () => {
+test('legacy projection routes require server bearer auth, reject browsers and remain rate limited', async () => {
   const allowed = await enforceSecurity(
     {
       method: 'GET',
       path: `/api/v1/vaults/${address}/events`,
-      origin: 'http://localhost:5173',
+      authorization: `Bearer ${secret}`,
       clientId: '203.0.113.20',
     },
     config,
@@ -252,11 +252,18 @@ test('Vault query routes are exact-origin protected and Redis rate limited befor
   );
   assert.equal(allowed.handled, false);
   assert.equal(allowed.headers['RateLimit-Limit'], String(config.vaultEventRateLimit));
+  const missingKey = await enforceSecurity(
+    { method: 'GET', path: '/api/v1/vaults', clientId: '203.0.113.20' },
+    config,
+    new FakeLimiter(),
+  );
+  assert.equal(missingKey.status, 401);
   const blockedOrigin = await enforceSecurity(
     {
       method: 'GET',
       path: `/api/v1/wallets/${address}/positions`,
-      origin: 'https://evil.example',
+      origin: 'http://localhost:5173',
+      authorization: `Bearer ${secret}`,
       clientId: '203.0.113.20',
     },
     config,
@@ -264,7 +271,12 @@ test('Vault query routes are exact-origin protected and Redis rate limited befor
   );
   assert.equal(blockedOrigin.status, 403);
   const noRedis = await enforceSecurity(
-    { method: 'GET', path: '/api/v1/vaults/not-an-address', clientId: '203.0.113.20' },
+    {
+      method: 'GET',
+      path: '/api/v1/vaults/not-an-address',
+      authorization: `Bearer ${secret}`,
+      clientId: '203.0.113.20',
+    },
     config,
   );
   assert.equal(noRedis.status, 503);
@@ -276,6 +288,73 @@ test('rate-limited routes fail closed when Redis is missing or fails', async () 
   const limiter = new FakeLimiter();
   limiter.fail = true;
   assert.equal((await enforceSecurity(request, config, limiter)).status, 503);
+});
+
+test('every frontend V2 endpoint requires server bearer auth and Redis rate limiting', async () => {
+  const vault = address;
+  const frontendRoutes = [
+    ['GET', '/v1/openapi.json'],
+    ['GET', '/v1/shapes'],
+    ['POST', '/v1/shapes/preview'],
+    ['GET', '/v1/chains/11155111/vaults'],
+    ['GET', `/v1/chains/11155111/vaults/${vault}`],
+    ['GET', `/v1/chains/11155111/vaults/${vault}/bands`],
+    ['GET', `/v1/chains/11155111/vaults/${vault}/activity`],
+    ['GET', `/v1/chains/11155111/vaults/${vault}/history`],
+    ['GET', `/v1/chains/11155111/vaults/${vault}/rebalances`],
+    ['GET', `/v1/chains/11155111/users/${vault}/positions`],
+    ['GET', '/v1/chains/11155111/pools'],
+    ['GET', '/v1/chains/11155111/limits'],
+    ['POST', '/v1/chains/11155111/tx/validate-config'],
+    ['POST', '/v1/chains/11155111/tx/create-vault'],
+    ['POST', '/v1/chains/11155111/quotes/deposit'],
+    ['POST', '/v1/chains/11155111/tx/deposit'],
+    ['POST', '/v1/chains/11155111/quotes/withdraw'],
+    ['POST', '/v1/chains/11155111/tx/withdraw'],
+    ['POST', '/v1/chains/11155111/tx/manager/update'],
+    ['POST', '/v1/chains/11155111/tx/manager/rebalance'],
+  ] as const;
+
+  for (const [method, path] of frontendRoutes) {
+    const allowed = await enforceSecurity(
+      {
+        method,
+        path,
+        authorization: `Bearer ${secret}`,
+        clientId: `frontend-${method}-${path}`,
+      },
+      config,
+      new FakeLimiter(),
+    );
+    assert.equal(allowed.handled, false, `${method} ${path} should be allowed`);
+    assert.ok(allowed.headers['RateLimit-Limit'], `${method} ${path} must be rate limited`);
+
+    const missingKey = await enforceSecurity(
+      { method, path, clientId: 'missing-key' },
+      config,
+      new FakeLimiter(),
+    );
+    assert.equal(missingKey.status, 401, `${method} ${path} must require a bearer key`);
+
+    const blockedOrigin = await enforceSecurity(
+      {
+        method,
+        path,
+        origin: 'http://localhost:5173',
+        authorization: `Bearer ${secret}`,
+        clientId: 'blocked-origin',
+      },
+      config,
+      new FakeLimiter(),
+    );
+    assert.equal(blockedOrigin.status, 403, `${method} ${path} must reject an untrusted origin`);
+
+    const missingLimiter = await enforceSecurity(
+      { method, path, authorization: `Bearer ${secret}`, clientId: 'redis-unavailable' },
+      config,
+    );
+    assert.equal(missingLimiter.status, 503, `${method} ${path} must fail closed without Redis`);
+  }
 });
 
 test('proxy rate-limit identity uses only the validated rightmost forwarded peer', () => {

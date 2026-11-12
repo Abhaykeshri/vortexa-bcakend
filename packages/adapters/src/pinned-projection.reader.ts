@@ -24,7 +24,8 @@ function nullableBigint(value: unknown): bigint | null {
 }
 
 function text(value: unknown, label: string): string {
-  if (typeof value !== 'string' || value.length === 0 || value.length > 128) throw new Error(`Invalid ${label}`);
+  if (typeof value !== 'string' || value.length === 0 || value.length > 128)
+    throw new Error(`Invalid ${label}`);
   return value;
 }
 

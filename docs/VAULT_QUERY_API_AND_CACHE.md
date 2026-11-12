@@ -1,6 +1,6 @@
 # M7 API and cache
 
-## Public read endpoints
+## Internal projection read endpoints
 
 | Method | Route                               | Result                                  |
 | ------ | ----------------------------------- | --------------------------------------- |
@@ -9,7 +9,7 @@
 | GET    | `/api/v1/vaults/:vault/events`      | Stable canonical event page             |
 | GET    | `/api/v1/wallets/:wallet/positions` | Stable wallet-position page             |
 
-All routes accept `chainId=11155111`. List routes accept `limit` and an opaque `cursor`; unknown/duplicate query parameters, invalid addresses, invalid limits, and invalid cursors fail with safe 400 responses. Quantities that may exceed JavaScript integer precision are decimal strings.
+All routes require the server-only bearer `INTERNAL_API_KEY` and reject browser origins. They accept `chainId=11155111`; list routes accept `limit` and an opaque `cursor`. Unknown/duplicate query parameters, invalid addresses, invalid limits, and invalid cursors fail with safe 400 responses. Quantities that may exceed JavaScript integer precision are decimal strings.
 
 Each successful response includes `snapshotBlock`, `indexedThroughBlock`, `indexedBlockHash`, `finality`, `stale`, and projection `generation`. A response is stale when the head cannot be checked, the configured lag threshold is exceeded, or the projection is only observed. Stale data is never presented as live.
 

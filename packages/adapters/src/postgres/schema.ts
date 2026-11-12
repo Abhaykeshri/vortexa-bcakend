@@ -382,7 +382,13 @@ export const rebalances = pgTable(
   },
   (t) => [
     primaryKey({ columns: [t.chainId, t.transactionHash, t.logIndex, t.blockHash] }),
-    index('v2_rebalances_vault_block_idx').on(t.chainId, t.vaultAddress, t.canonical, t.blockNumber, t.logIndex),
+    index('v2_rebalances_vault_block_idx').on(
+      t.chainId,
+      t.vaultAddress,
+      t.canonical,
+      t.blockNumber,
+      t.logIndex,
+    ),
   ],
 );
 

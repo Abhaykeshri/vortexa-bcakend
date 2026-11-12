@@ -1,4 +1,5 @@
-export type ChainId = 11155111 | 1;
+/** Positive EVM chain identifier validated at the configuration boundary. */
+export type ChainId = number;
 export type Address = `0x${string}`;
 export type FeatureStatus = 'SUPPORTED' | 'PENDING_CONTRACT' | 'UNSUPPORTED';
 export type FeatureKey =

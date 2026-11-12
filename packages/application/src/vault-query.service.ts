@@ -97,6 +97,7 @@ export function buildResponseCacheKey(input: {
   routeName: string;
   chainId: ChainId;
   resourceScope: string;
+  visibilityScope?: 'internal' | 'public';
   generation: bigint;
   cursor: string | null;
   limit: number;
@@ -104,7 +105,7 @@ export function buildResponseCacheKey(input: {
   if (!Number.isSafeInteger(input.limit) || input.limit < 1 || input.limit > 100)
     throw new Error('Invalid cache limit');
   const route = safeRouteSegment(
-    `${input.routeName}.chain_${input.chainId}.${input.resourceScope}.scope_public`,
+    `${input.routeName}.chain_${input.chainId}.${input.resourceScope}.scope_${input.visibilityScope ?? 'public'}`,
   );
   const version = `v1.g${input.generation}`;
   const cursor = input.cursor ?? 'start';
@@ -256,6 +257,7 @@ export class VaultQueryService {
     chainId: ChainId,
     cursorValue: string | null,
     limit: number,
+    visibilityScope: 'internal' | 'public' = 'internal',
   ): Promise<PaginatedProjectionResponse<SerializedVault>> {
     const state = await this.state(chainId);
     const route = 'vaults';
@@ -264,6 +266,7 @@ export class VaultQueryService {
       routeName: route,
       chainId,
       resourceScope: 'filters_none',
+      visibilityScope,
       generation: state.generation,
       cursor: cursorValue,
       limit,
@@ -298,6 +301,7 @@ export class VaultQueryService {
   async vaultDetail(
     chainId: ChainId,
     address: Address,
+    visibilityScope: 'internal' | 'public' = 'internal',
   ): Promise<{
     data: SerializedVault | null;
     meta: ProjectionResponseMetadata;
@@ -307,6 +311,7 @@ export class VaultQueryService {
       routeName: 'vault_detail',
       chainId,
       resourceScope: `vault_${address.toLowerCase()}`,
+      visibilityScope,
       generation: state.generation,
       cursor: null,
       limit: 1,
@@ -351,6 +356,7 @@ export class VaultQueryService {
     address: Address,
     cursorValue: string | null,
     limit: number,
+    visibilityScope: 'internal' | 'public' = 'internal',
   ): Promise<PaginatedProjectionResponse<SerializedEvent>> {
     const state = await this.state(chainId);
     const route = 'vault_events';
@@ -359,6 +365,7 @@ export class VaultQueryService {
       routeName: route,
       chainId,
       resourceScope: `vault_${address.toLowerCase()}`,
+      visibilityScope,
       generation: state.generation,
       cursor: cursorValue,
       limit,
@@ -406,6 +413,7 @@ export class VaultQueryService {
     wallet: Address,
     cursorValue: string | null,
     limit: number,
+    visibilityScope: 'internal' | 'public' = 'internal',
   ): Promise<PaginatedProjectionResponse<SerializedPosition>> {
     const state = await this.state(chainId);
     const route = 'wallet_positions';
@@ -414,6 +422,7 @@ export class VaultQueryService {
       routeName: route,
       chainId,
       resourceScope: `wallet_${wallet.toLowerCase()}`,
+      visibilityScope,
       generation: state.generation,
       cursor: cursorValue,
       limit,

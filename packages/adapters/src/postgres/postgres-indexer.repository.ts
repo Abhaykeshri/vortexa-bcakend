@@ -175,35 +175,82 @@ export class PostgresIndexerStore implements IndexerStore {
   /** Projects decoded V2 events into reorg-safe UI read models. The unique key
    * includes block hash so a replacement block cannot overwrite history. */
   private async applyV2ReadModelLog(client: PoolClient, log: IndexedLog): Promise<void> {
-    const args = log.eventArgs && typeof log.eventArgs === 'object' && !Array.isArray(log.eventArgs)
-      ? (log.eventArgs as Record<string, unknown>) : {};
+    const args =
+      log.eventArgs && typeof log.eventArgs === 'object' && !Array.isArray(log.eventArgs)
+        ? (log.eventArgs as Record<string, unknown>)
+        : {};
     const candidate = eventString(args.vault) || log.address;
     const vault = candidate.toLowerCase();
     if (!/^0x[a-f0-9]{40}$/.test(vault)) return;
     if (log.eventName !== 'VaultCreated') {
-      const known = await client.query('SELECT 1 FROM vaults WHERE chain_id=$1 AND address=$2', [log.chainId, vault]);
+      const known = await client.query('SELECT 1 FROM vaults WHERE chain_id=$1 AND address=$2', [
+        log.chainId,
+        vault,
+      ]);
       if (known.rowCount !== 1) return;
     }
-    const actor = (eventString(args.actor) || eventString(args.sender) || eventString(args.owner) || eventString(args.from) || null)?.toLowerCase() ?? null;
+    const actor =
+      (
+        eventString(args.actor) ||
+        eventString(args.sender) ||
+        eventString(args.owner) ||
+        eventString(args.from) ||
+        null
+      )?.toLowerCase() ?? null;
     const receiver = (eventString(args.receiver) || eventString(args.to) || null)?.toLowerCase() ?? null;
     const safe = (value: unknown): string | null => {
       if (value === undefined || value === null) return null;
-      if (typeof value === 'bigint' || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
+      if (
+        typeof value === 'bigint' ||
+        typeof value === 'string' ||
+        typeof value === 'number' ||
+        typeof value === 'boolean'
+      )
+        return String(value);
       return null;
     };
-    const amounts = JSON.stringify(Object.fromEntries(Object.entries(args).filter(([key]) => /amount|value|liquidity|shares|fee/i.test(key)).map(([key, value]) => [key, safe(value)])));
+    const amounts = JSON.stringify(
+      Object.fromEntries(
+        Object.entries(args)
+          .filter(([key]) => /amount|value|liquidity|shares|fee/i.test(key))
+          .map(([key, value]) => [key, safe(value)]),
+      ),
+    );
     await client.query(
       `INSERT INTO v2_activities(chain_id,transaction_hash,log_index,block_hash,block_number,vault_address,kind,actor,receiver,amounts,finality,canonical)
        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,true)
        ON CONFLICT(chain_id,transaction_hash,log_index,block_hash) DO UPDATE SET canonical=true,finality=EXCLUDED.finality,kind=EXCLUDED.kind`,
-      [log.chainId, log.transactionHash, log.logIndex, log.blockHash, log.blockNumber.toString(), vault, log.eventName, actor, receiver, amounts, log.finality],
+      [
+        log.chainId,
+        log.transactionHash,
+        log.logIndex,
+        log.blockHash,
+        log.blockNumber.toString(),
+        vault,
+        log.eventName,
+        actor,
+        receiver,
+        amounts,
+        log.finality,
+      ],
     );
     if (log.eventName === 'Rebalanced') {
       await client.query(
         `INSERT INTO v2_rebalances(chain_id,transaction_hash,log_index,block_hash,vault_address,block_number,detail,finality,canonical)
          VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8,true)
          ON CONFLICT(chain_id,transaction_hash,log_index,block_hash) DO UPDATE SET canonical=true,finality=EXCLUDED.finality,detail=EXCLUDED.detail`,
-        [log.chainId, log.transactionHash, log.logIndex, log.blockHash, vault, log.blockNumber.toString(), JSON.stringify(args, (_key: string, value: unknown): unknown => typeof value === 'bigint' ? value.toString() : value), log.finality],
+        [
+          log.chainId,
+          log.transactionHash,
+          log.logIndex,
+          log.blockHash,
+          vault,
+          log.blockNumber.toString(),
+          JSON.stringify(args, (_key: string, value: unknown): unknown =>
+            typeof value === 'bigint' ? value.toString() : value,
+          ),
+          log.finality,
+        ],
       );
     }
     if (log.eventName === 'FeesCollected') {
@@ -212,7 +259,19 @@ export class PostgresIndexerStore implements IndexerStore {
         `INSERT INTO v2_fee_collections(chain_id,transaction_hash,log_index,block_hash,vault_address,amount0,amount1,protocol_fee0,protocol_fee1,block_number,finality,canonical)
          VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,true)
          ON CONFLICT(chain_id,transaction_hash,log_index,block_hash) DO UPDATE SET canonical=true,finality=EXCLUDED.finality`,
-        [log.chainId, log.transactionHash, log.logIndex, log.blockHash, vault, num('amount0'), num('amount1'), num('protocolFee0'), num('protocolFee1'), log.blockNumber.toString(), log.finality],
+        [
+          log.chainId,
+          log.transactionHash,
+          log.logIndex,
+          log.blockHash,
+          vault,
+          num('amount0'),
+          num('amount1'),
+          num('protocolFee0'),
+          num('protocolFee1'),
+          log.blockNumber.toString(),
+          log.finality,
+        ],
       );
     }
   }

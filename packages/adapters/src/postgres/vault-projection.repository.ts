@@ -52,7 +52,7 @@ function mapVault(row: VaultRow): VaultProjection {
   if (!['NormalLP', 'BuyDip', 'SellPump'].includes(row.strategy))
     throw new Error('Invalid vault projection vault strategy');
   return {
-    chainId: row.chainId as ChainId,
+    chainId: row.chainId,
     address: requiredAddress(row.address, 'vault address'),
     factoryAddress: requiredAddress(row.factoryAddress, 'factory address'),
     creator: requiredAddress(row.creator, 'creator'),
@@ -101,7 +101,7 @@ export class DrizzleVaultProjectionRepository
       .limit(1);
     return row
       ? {
-          chainId: row.chainId as ChainId,
+          chainId: row.chainId,
           generation: row.generation,
           indexedThroughBlock: BigInt(row.indexedThroughBlock),
           indexedBlockHash: requiredHash(row.indexedBlockHash, 'projection state block hash'),
@@ -198,7 +198,7 @@ export class DrizzleVaultProjectionRepository
       )
       .limit(limit);
     return rows.map((row) => ({
-      chainId: row.chainId as ChainId,
+      chainId: row.chainId,
       blockNumber: BigInt(row.blockNumber),
       blockHash: requiredHash(row.blockHash, 'event block hash'),
       transactionHash: requiredHash(row.transactionHash, 'event transaction hash'),
@@ -233,7 +233,7 @@ export class DrizzleVaultProjectionRepository
       .orderBy(asc(schema.balances.vaultAddress))
       .limit(limit);
     return rows.map((row) => ({
-      chainId: row.chainId as ChainId,
+      chainId: row.chainId,
       vaultAddress: requiredAddress(row.vaultAddress, 'position vault'),
       walletAddress: requiredAddress(row.walletAddress, 'position wallet'),
       shares: BigInt(row.shares),
@@ -259,7 +259,7 @@ export class DrizzleVaultProjectionRepository
       )
       .orderBy(asc(schema.balances.walletAddress));
     return rows.map((row) => ({
-      chainId: row.chainId as ChainId,
+      chainId: row.chainId,
       vaultAddress: requiredAddress(row.vaultAddress, 'holder vault'),
       walletAddress: requiredAddress(row.walletAddress, 'holder wallet'),
       shares: BigInt(row.shares),
@@ -289,7 +289,7 @@ export class DrizzleVaultProjectionRepository
       .orderBy(desc(schema.vaultSnapshots.bucket))
       .limit(limit);
     return rows.reverse().map((row) => ({
-      chainId: row.chainId as ChainId,
+      chainId: row.chainId,
       vaultAddress: requiredAddress(row.vaultAddress, 'snapshot vault'),
       bucket: row.bucket,
       blockNumber: BigInt(row.blockNumber),

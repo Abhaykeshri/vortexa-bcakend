@@ -167,6 +167,17 @@ test('Response cache keys use four canonical fields and isolate resource, cursor
     limit: 1,
   });
   assert.notEqual(first, changed);
+  const internal = buildResponseCacheKey({
+    routeName: 'vaults',
+    chainId,
+    resourceScope: 'filters_none',
+    visibilityScope: 'internal',
+    generation: 1n,
+    cursor: null,
+    limit: 25,
+  });
+  assert.match(internal, /\.scope_internal:v1\.g1:start:25$/);
+  assert.notEqual(first, internal);
   const scopes = [
     buildResponseCacheKey({
       routeName: 'wallet_positions',

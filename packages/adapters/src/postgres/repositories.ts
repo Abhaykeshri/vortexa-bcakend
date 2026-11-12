@@ -42,7 +42,7 @@ export class PostgresVaultRepository implements VaultRepositoryPort {
       | undefined;
     return row && row.shape_id !== null
       ? {
-          chainId: Number(row.chain_id) as ChainId,
+          chainId: Number(row.chain_id),
           address: row.address as Address,
           strategy: row.strategy,
           shapeId: row.shape_id,

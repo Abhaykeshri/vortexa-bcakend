@@ -11,7 +11,6 @@
     "packages/*"
   ],
   "scripts": {
-    
     "build": "tsc -b",
     "typecheck": "tsc -b --pretty false",
     "test": "npm run build && npm run test:compiled",
@@ -45,11 +44,12 @@
     "verify:live:contracts": "node scripts/verify-contract-deployments.mjs",
     "inspect:config": "npm run build && node scripts/inspect-service-configuration.mjs",
     "inspect:operations": "npm run build && node scripts/inspect-operational-state.mjs",
+    "diagnose:indexer": "npm run build && node scripts/diagnose-indexer-startup.mjs",
     "inspect:timelock": "npm run build && node scripts/inspect-timelock-governance.mjs",
     "smoke:production": "node scripts/verify-production-smoke.mjs",
     "verify:release:static": "node scripts/verify-release-static.mjs",
     "clean": "tsc -b --clean",
-   "start": "node scripts/start-all.mjs",
+    "start": "node scripts/start-all.mjs",
     "dev": "npm run build && npm run start"
   },
   "devDependencies": {

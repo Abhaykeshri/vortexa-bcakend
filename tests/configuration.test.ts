@@ -78,6 +78,14 @@ test('production environment ignores local files', () => {
 });
 test('configuration accepts valid Sepolia deployment', () =>
   assert.equal(loadConfig(env, manifest).contracts.ZAP, addr));
+test('configuration defaults the chain from the manifest and accepts the generic RPC key', () => {
+  const genericEnv: Record<string, string> = { ...env, CHAIN_RPC_URL: env.SEPOLIA_RPC_URL! };
+  delete genericEnv.ACTIVE_CHAIN_ID;
+  delete genericEnv.SEPOLIA_RPC_URL;
+  const config = loadConfig(genericEnv, manifest);
+  assert.equal(config.chainId, manifest.chainId);
+  assert.deepEqual(config.rpcUrls, ['https://rpc.example.org']);
+});
 test('configuration rejects wrong chain', () =>
   assert.throws(() => loadConfig({ ...env, ACTIVE_CHAIN_ID: '1' }, manifest)));
 test('configuration accepts one active Sepolia chain ID', () => {

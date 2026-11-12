@@ -33,7 +33,7 @@ async function start(): Promise<void> {
     [
       {
         chainId: config.chainId,
-        name: 'Ethereum Sepolia',
+        name: config.manifest.network,
         enabled: true,
         rpcUrls: config.rpcUrls,
         rpcTimeoutMs: config.rpcTimeoutMs,

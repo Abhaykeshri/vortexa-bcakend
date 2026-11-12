@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { Address } from '../../../../packages/domain/src/types.js';
+import type { ChainId } from '../../../../packages/domain/src/types.js';
 import { loadManifest, type DeploymentManifest } from '../../../../packages/contracts/src/manifest.js';
 
 // Single configuration entrypoint. Reads .env without external dependencies.
@@ -58,7 +59,7 @@ export interface Config {
   nodeEnv: 'development' | 'test' | 'production';
   host: string;
   port: number;
-  chainId: 11155111;
+  chainId: ChainId;
   rpcUrl: string;
   rpcUrls: readonly string[];
   rpcTimeoutMs: number;
@@ -92,7 +93,7 @@ export interface Config {
   manifest: DeploymentManifest;
   logLevel: 'debug' | 'info' | 'warn' | 'error';
   indexerEnabled: boolean;
-  indexerChainId?: 11155111;
+  indexerChainId?: ChainId;
   indexerStartBlock?: bigint;
   indexerBatchSize?: number;
   indexerHeaderConcurrency?: number;
@@ -163,8 +164,12 @@ export function loadConfig(
 ): Config {
   const nodeEnv = env.NODE_ENV ?? 'development';
   if (!['development', 'test', 'production'].includes(nodeEnv)) throw new Error('Invalid NODE_ENV');
-  const chainId = int(env, 'ACTIVE_CHAIN_ID', 11155111, 11155111, 11155111) as 11155111;
-  const rpcUrls = (env.SEPOLIA_RPC_URLS ?? required(env, 'SEPOLIA_RPC_URL'))
+  const manifest = suppliedManifest ?? loadManifest(env.CONTRACT_MANIFEST_PATH);
+  const chainId = int(env, 'ACTIVE_CHAIN_ID', manifest.chainId, 1, 2_147_483_647);
+  const rpcSource = env.CHAIN_RPC_URLS ?? env.SEPOLIA_RPC_URLS ?? env.CHAIN_RPC_URL ?? env.SEPOLIA_RPC_URL;
+  if (!rpcSource || rpcSource.startsWith('REPLACE_') || rpcSource.includes('YOUR_'))
+    throw new Error('Missing or placeholder configuration: CHAIN_RPC_URL');
+  const rpcUrls = rpcSource
     .split(',')
     .map((x) => x.trim())
     .filter(Boolean);
@@ -175,10 +180,9 @@ export function loadConfig(
       !['https:', 'http:'].includes(rpc.protocol) ||
       (nodeEnv === 'production' && rpc.protocol !== 'https:')
     )
-      throw new Error('Invalid SEPOLIA_RPC_URL');
+      throw new Error('Invalid CHAIN_RPC_URL');
   }
   const rpcUrl = rpcUrls[0]!;
-  const manifest = suppliedManifest ?? loadManifest(env.CONTRACT_MANIFEST_PATH);
   if (manifest.chainId !== chainId) throw new Error('Manifest chain mismatch');
   const contracts = {} as Record<ContractKey, Address>;
   const contractCodeHashes: Partial<Record<ContractKey, `0x${string}`>> = {};

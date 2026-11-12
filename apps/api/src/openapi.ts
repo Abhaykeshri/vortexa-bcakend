@@ -33,11 +33,26 @@ const errorResponse = z.object({
 });
 const success = {
   200: { description: 'Successful response', content: { 'application/json': { schema: response } } },
-  400: { description: 'Validation or unsupported-chain error', content: { 'application/json': { schema: errorResponse } } },
-  404: { description: 'Registered vault/resource not found', content: { 'application/json': { schema: errorResponse } } },
-  409: { description: 'Contract safety or state conflict', content: { 'application/json': { schema: errorResponse } } },
-  429: { description: 'Distributed rate limit exceeded', content: { 'application/json': { schema: errorResponse } } },
-  503: { description: 'Verified data source unavailable', content: { 'application/json': { schema: errorResponse } } },
+  400: {
+    description: 'Validation or unsupported-chain error',
+    content: { 'application/json': { schema: errorResponse } },
+  },
+  404: {
+    description: 'Registered vault/resource not found',
+    content: { 'application/json': { schema: errorResponse } },
+  },
+  409: {
+    description: 'Contract safety or state conflict',
+    content: { 'application/json': { schema: errorResponse } },
+  },
+  429: {
+    description: 'Distributed rate limit exceeded',
+    content: { 'application/json': { schema: errorResponse } },
+  },
+  503: {
+    description: 'Verified data source unavailable',
+    content: { 'application/json': { schema: errorResponse } },
+  },
 };
 
 registry.register('VaultConfig', VaultConfigSchema);
@@ -125,8 +140,18 @@ post(
   WithdrawSchema,
   ChainParamsSchema,
 );
-post('/v1/chains/{chainId}/tx/manager/update', 'Build an unsigned manager configuration update', ManagerUpdateSchema, ChainParamsSchema);
-post('/v1/chains/{chainId}/tx/manager/rebalance', 'Build an unsigned manager rebalance', ManagerRebalanceSchema, ChainParamsSchema);
+post(
+  '/v1/chains/{chainId}/tx/manager/update',
+  'Build an unsigned manager configuration update',
+  ManagerUpdateSchema,
+  ChainParamsSchema,
+);
+post(
+  '/v1/chains/{chainId}/tx/manager/rebalance',
+  'Build an unsigned manager rebalance',
+  ManagerRebalanceSchema,
+  ChainParamsSchema,
+);
 
 export const openApiDocument = new OpenApiGeneratorV31(registry.definitions).generateDocument({
   openapi: '3.1.0',

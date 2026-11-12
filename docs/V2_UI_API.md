@@ -29,6 +29,29 @@ All blockchain quantities are decimal strings in JSON. Addresses are normalized 
 
 The legacy `/api/v1/*` routes remain available.
 
+## Security and persistence contract
+
+Every frontend route in the table above is protected by the same API boundary: server-only bearer
+authentication, Helmet response headers, escaped JSON, a bounded request body, strict Zod schemas,
+and a distributed Redis rate limit that fails closed. The browser calls the same-origin Next.js
+`/api/v2/*` proxy; that server proxy attaches the bearer key. Direct browser access to backend V2
+routes is rejected. This flow does not use cookies, so it is not CSRF-capable.
+
+`INTERNAL_API_KEY` is available only to the backend and the frontend server proxy. It must never be
+copied to a `NEXT_PUBLIC_*` variable because browser bundles expose those values. Configure the proxy
+with server-only `BACKEND_API_KEY` and `BACKEND_V2_API_URL` values.
+
+Projection persistence uses Drizzle-backed PostgreSQL repository adapters. Live chain reads remain
+contract RPC calls and do not go through an ORM. Cacheable responses use exactly four fields:
+
+```text
+<route_name>:<version>:<cursor>:<limit>
+```
+
+Chain, resource, and visibility are embedded in `route_name`; projection generation is embedded in
+`version`. Mutation plans, quotes, validation, history reads, and other non-cacheable responses use
+`Cache-Control: no-store` and do not manufacture a cache key.
+
 ## Read examples
 
 ```http
@@ -183,6 +206,11 @@ Single-token Zap:
 ```json
 {"mode":"zapSingle","vault":"0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","user":"0x1111111111111111111111111111111111111111","receiver":"0x1111111111111111111111111111111111111111","tokenIn":"0x1c7d4b196cb0c7b01d743fbc6116a902379c7238","amountIn":"1000000","toleranceBps":50,"swapSlippageBps":50}
 ```
+
+The frontend enables Single-token Zap only while the selected pool reports `priceTrusted: true`.
+When PriceGuard rejects the live/reference price deviation, Zap simulation fails with
+`UntrustedPrice`; the UI disables Zap and uses direct pair deposit with both ETH and USDC. This
+prevents users from sending an approval for a swap that cannot execute.
 
 Pair Zap uses `mode: "zapPair"` with `amount0` and `amount1`. Quote responses contain `expectedShares`, `minimumShares`, block expiry, and `requiresApproval`. Transaction responses add exact `approve` steps and the unsigned `depositPair`, `zapDeposit`, or `zapDepositPair` call.
 

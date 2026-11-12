@@ -87,8 +87,17 @@ async function start() {
       }),
     );
     coordination = new RedisCoordinationAdapter(redis);
-    leaseAcquired = await coordination.acquire(leaseKey, leaseOwner, leaseTtl);
-    if (!leaseAcquired) throw new Error('Indexer lease unavailable');
+    let nextLeaseWaitLogAt = 0;
+    while (!stopping && !leaseAcquired) {
+      leaseAcquired = await coordination.acquire(leaseKey, leaseOwner, leaseTtl);
+      if (leaseAcquired) break;
+      if (Date.now() >= nextLeaseWaitLogAt) {
+        log('warn', 'indexer_waiting_for_lease', { retryInMs: 1000 });
+        nextLeaseWaitLogAt = Date.now() + leaseTtl;
+      }
+      await delayOrAbort(1000, stopController.signal);
+    }
+    if (stopping) return;
     const source = new ViemIndexerSource(
       config.indexerChainId,
       config.rpcUrls,

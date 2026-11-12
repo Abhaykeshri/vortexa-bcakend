@@ -17,7 +17,7 @@ import {
   type VaultConfigInput,
   type WithdrawCommand,
 } from '../../domain/src/vault-ui.js';
-import type { VaultQueryService } from './vault-query.service.js';
+import { buildResponseCacheKey, type VaultQueryService } from './vault-query.service.js';
 
 function jsonSafe(value: unknown): unknown {
   if (typeof value === 'bigint') return value.toString();
@@ -45,7 +45,15 @@ export class VaultUiService {
 
   async pools(chainId: number): Promise<unknown> {
     this.assertChain(chainId);
-    const key = `pool_catalog.chain_${chainId}.scope_public:v1.manifest:start:100`;
+    const key = buildResponseCacheKey({
+      routeName: 'pool_catalog',
+      chainId,
+      resourceScope: 'manifest',
+      visibilityScope: 'public',
+      generation: 0n,
+      cursor: null,
+      limit: 100,
+    });
     const cached = await this.cache?.get<unknown>(key).catch(() => null);
     if (cached) return cached;
     const result = jsonSafe(await this.chain.listPools());
@@ -54,7 +62,15 @@ export class VaultUiService {
   }
 
   async shapes(): Promise<unknown> {
-    const key = `shape_catalog.chain_${this.chainId}.scope_public:v1.contract:start:14`;
+    const key = buildResponseCacheKey({
+      routeName: 'shape_catalog',
+      chainId: this.chainId,
+      resourceScope: 'contract',
+      visibilityScope: 'public',
+      generation: 0n,
+      cursor: null,
+      limit: 14,
+    });
     const cached = await this.cache?.get<unknown>(key).catch(() => null);
     if (cached) return cached;
     const result = (await this.chain.listShapes()).map((shape) => {
@@ -122,9 +138,9 @@ export class VaultUiService {
     if (input.sort === 'apr' || input.sort === 'volume')
       throw new DomainError('STALE_STATE', 'Requested metric is unavailable');
     const [page, positions] = await Promise.all([
-      this.projections.listVaults(chainId, input.cursor, input.limit),
+      this.projections.listVaults(chainId, input.cursor, input.limit, 'public'),
       input.wallet
-        ? this.projections.walletPositions(chainId, input.wallet, null, 100)
+        ? this.projections.walletPositions(chainId, input.wallet, null, 100, 'public')
         : Promise.resolve(null),
     ]);
     const walletVaults = positions
@@ -202,7 +218,7 @@ export class VaultUiService {
     this.assertChain(chainId);
     const [live, projected, position, walletBalances, pools] = await Promise.all([
       this.chain.vaultInfo(vault),
-      this.projections?.vaultDetail(chainId, vault),
+      this.projections?.vaultDetail(chainId, vault, 'public'),
       user ? this.chain.userPosition(vault, user) : Promise.resolve(null),
       user ? this.chain.walletBalances(vault, user) : Promise.resolve(null),
       this.chain.listPools(),
@@ -279,13 +295,13 @@ export class VaultUiService {
     this.assertChain(chainId);
     if (!this.projections) throw new DomainError('STALE_STATE', 'Projection unavailable');
     await this.chain.vaultInfo(vault);
-    return this.projections.vaultEvents(chainId, vault, cursor, limit);
+    return this.projections.vaultEvents(chainId, vault, cursor, limit, 'public');
   }
 
   async positions(chainId: number, user: Address, cursor: string | null, limit: number): Promise<unknown> {
     this.assertChain(chainId);
     if (!this.projections) throw new DomainError('STALE_STATE', 'Projection unavailable');
-    return this.projections.walletPositions(chainId, user, cursor, limit);
+    return this.projections.walletPositions(chainId, user, cursor, limit, 'public');
   }
 
   async bands(chainId: number, vault: Address): Promise<unknown> {

@@ -166,6 +166,7 @@ export class ViemVaultUiAdapter implements VaultUiChainPort {
     vaultM5: contractAbi('VaultM5Module'),
     vaultM6: contractAbi('VaultM6Module'),
     zap: contractAbi('Zap'),
+    swapExecutor: contractAbi('SwapExecutor'),
     shapes: contractAbi('ShapeLibrary'),
     priceGuard: contractAbi('PriceGuard'),
   };
@@ -196,6 +197,7 @@ export class ViemVaultUiAdapter implements VaultUiChainPort {
       ...this.abis.vault,
       ...this.abis.vaultM5,
       ...this.abis.zap,
+      ...this.abis.swapExecutor,
       ...this.abis.priceGuard,
       ...uniswapV4Errors,
     ];
@@ -227,6 +229,27 @@ export class ViemVaultUiAdapter implements VaultUiChainPort {
       if (reverted instanceof ContractFunctionRevertedError && reverted.raw) {
         try {
           return decodeErrorResult({ abi: this.errors, data: reverted.raw }).errorName;
+        } catch {
+          return 'UNKNOWN_CONTRACT_REVERT';
+        }
+      }
+      const withData = error.walk((candidate) =>
+        Boolean(
+          candidate &&
+          typeof candidate === 'object' &&
+          'data' in candidate &&
+          typeof candidate.data === 'string' &&
+          /^0x[0-9a-fA-F]{8,}$/.test(candidate.data),
+        ),
+      );
+      if (
+        withData &&
+        typeof withData === 'object' &&
+        'data' in withData &&
+        typeof withData.data === 'string'
+      ) {
+        try {
+          return decodeErrorResult({ abi: this.errors, data: withData.data as `0x${string}` }).errorName;
         } catch {
           return 'UNKNOWN_CONTRACT_REVERT';
         }
@@ -426,7 +449,6 @@ export class ViemVaultUiAdapter implements VaultUiChainPort {
       ...validateVaultConfig(config, pool.maxDepositCap),
     ];
     if (!pool.allowed) violations.push({ field: 'poolKey', code: 'PoolNotAllowed' });
-    if (!pool.priceTrusted) violations.push({ field: 'poolKey', code: 'PriceUntrusted' });
     if (pool.baseIsCurrency0 !== config.baseIsCurrency0)
       violations.push({ field: 'baseIsCurrency0', code: 'InvalidBaseOrientation' });
     if (shapeValid !== true) violations.push({ field: 'shapeId', code: 'InvalidShape' });

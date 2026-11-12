@@ -147,13 +147,19 @@ test('payload limits, malformed JSON and unsupported methods return safe errors'
 test('Vault route validation and missing projections preserve safe status codes', async () => {
   const app = createApp(dependencies());
   await request(app)
+    .get('/api/v1/vaults')
+    .expect(401, /UNAUTHORIZED/);
+  await request(app)
     .get('/api/v1/vaults?limit=0')
+    .set('Authorization', `Bearer ${internalApiKey}`)
     .expect(400, /INVALID_LIMIT/);
   await request(app)
     .get('/api/v1/vaults')
+    .set('Authorization', `Bearer ${internalApiKey}`)
     .expect(503, /PROJECTION_UNAVAILABLE/);
   await request(app)
     .get('/api/v1/vaults/not-an-address')
+    .set('Authorization', `Bearer ${internalApiKey}`)
     .expect(400, /INVALID_ADDRESS/);
   await request(app)
     .get('/api/v1/network?chainId=1')

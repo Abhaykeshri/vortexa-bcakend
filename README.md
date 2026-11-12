@@ -50,18 +50,18 @@ The public deployment addresses in `.env.example` and the canonical manifest are
 
 ## HTTP API
 
-| Endpoint | Purpose | Policy |
-|---|---|---|
-| `GET /health/live` | Process liveness | Server probe |
-| `GET /health/ready` | RPC, contract, PostgreSQL, and Redis readiness | Internal bearer key; browser origins rejected |
-| `GET /api/v1/network` | Active chain, manifest, addresses, confirmation depth | Exact CORS and distributed rate limit |
-| `GET /api/v1/chain/status` | Latest and safe-confirmation blocks | Exact CORS and distributed rate limit |
-| `GET /api/v1/contracts/status` | Runtime deployment status | Exact CORS and strict distributed rate limit |
-| `GET /api/v1/contracts/wiring` | Critical factory, Zap, and executor wiring | Internal bearer key; browser origins rejected |
-| `GET /api/v1/vaults` | Stable paginated vault catalog | Exact CORS and distributed rate limit |
-| `GET /api/v1/vaults/:address` | One pinned vault projection | Exact CORS and distributed rate limit |
-| `GET /api/v1/vaults/:address/events` | Canonical vault events | Exact CORS and stricter distributed rate limit |
-| `GET /api/v1/wallets/:address/positions` | Pinned wallet positions | Exact CORS and distributed rate limit |
+| Endpoint                                 | Purpose                                               | Policy                                                                         |
+| ---------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `GET /health/live`                       | Process liveness                                      | Server probe                                                                   |
+| `GET /health/ready`                      | RPC, contract, PostgreSQL, and Redis readiness        | Internal bearer key; browser origins rejected                                  |
+| `GET /api/v1/network`                    | Active chain, manifest, addresses, confirmation depth | Exact CORS and distributed rate limit                                          |
+| `GET /api/v1/chain/status`               | Latest and safe-confirmation blocks                   | Exact CORS and distributed rate limit                                          |
+| `GET /api/v1/contracts/status`           | Runtime deployment status                             | Exact CORS and strict distributed rate limit                                   |
+| `GET /api/v1/contracts/wiring`           | Critical factory, Zap, and executor wiring            | Internal bearer key; browser origins rejected                                  |
+| `GET /api/v1/vaults`                     | Stable paginated vault catalog                        | Internal bearer key; browser origins rejected; distributed rate limit          |
+| `GET /api/v1/vaults/:address`            | One pinned vault projection                           | Internal bearer key; browser origins rejected; distributed rate limit          |
+| `GET /api/v1/vaults/:address/events`     | Canonical vault events                                | Internal bearer key; browser origins rejected; stricter distributed rate limit |
+| `GET /api/v1/wallets/:address/positions` | Pinned wallet positions                               | Internal bearer key; browser origins rejected; distributed rate limit          |
 
 Unsupported methods return `405 METHOD_NOT_ALLOWED`. Blockchain quantities are serialized as exact decimal strings.
 

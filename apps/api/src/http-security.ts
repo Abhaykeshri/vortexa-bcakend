@@ -60,19 +60,19 @@ function policyFor(path: string): RoutePolicy | undefined {
   const exact = policies[path];
   if (exact) return exact;
   if (path === '/api/v1/vaults' || /^\/api\/v1\/vaults\/[^/]+$/.test(path))
-    return { browser: true, internal: false, rateLimit: 'vaultRead' };
+    return { browser: false, internal: true, rateLimit: 'vaultRead' };
   if (/^\/api\/v1\/vaults\/[^/]+\/events$/.test(path))
-    return { browser: true, internal: false, rateLimit: 'vaultEvents' };
+    return { browser: false, internal: true, rateLimit: 'vaultEvents' };
   if (/^\/api\/v1\/wallets\/[^/]+\/positions$/.test(path))
-    return { browser: true, internal: false, rateLimit: 'walletPositions' };
+    return { browser: false, internal: true, rateLimit: 'walletPositions' };
   if (path === '/v1/openapi.json' || path === '/v1/shapes')
-    return { browser: true, internal: false, methods: ['GET'], rateLimit: 'vaultRead' };
+    return { browser: false, internal: true, methods: ['GET'], rateLimit: 'vaultRead' };
   if (path === '/v1/shapes/preview')
-    return { browser: true, internal: false, methods: ['POST'], rateLimit: 'transaction' };
+    return { browser: false, internal: true, methods: ['POST'], rateLimit: 'transaction' };
   if (/^\/v1\/chains\/[^/]+\/(?:quotes|tx)\//.test(path))
-    return { browser: true, internal: false, methods: ['POST'], rateLimit: 'transaction' };
+    return { browser: false, internal: true, methods: ['POST'], rateLimit: 'transaction' };
   if (/^\/v1\/chains\/[^/]+\//.test(path))
-    return { browser: true, internal: false, methods: ['GET'], rateLimit: 'vaultRead' };
+    return { browser: false, internal: true, methods: ['GET'], rateLimit: 'vaultRead' };
   return undefined;
 }
 

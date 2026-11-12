@@ -9,7 +9,7 @@ import { VaultUiService } from '../packages/application/src/vault-ui.service.js'
 import type { VaultQueryService } from '../packages/application/src/vault-query.service.js';
 import { DomainError } from '../packages/domain/src/errors.js';
 import { loadManifest } from '../packages/contracts/src/manifest.js';
-import type { VaultUiChainPort } from '../packages/domain/src/ports.js';
+import type { CachePort, VaultUiChainPort } from '../packages/domain/src/ports.js';
 import type { DepositCommand, TransactionPlan, VaultConfigInput } from '../packages/domain/src/vault-ui.js';
 import { validateVaultConfig } from '../packages/domain/src/vault-ui.js';
 
@@ -138,6 +138,22 @@ class FakeVaultUiChain implements VaultUiChainPort {
   }
 }
 
+class RecordingCache implements CachePort {
+  readonly reads: string[] = [];
+  readonly writes: Array<{ key: string; ttlSeconds: number }> = [];
+
+  async get<T>(key: string): Promise<T | null> {
+    this.reads.push(key);
+    return null;
+  }
+
+  async set<T>(key: string, _value: T, ttlSeconds: number): Promise<void> {
+    this.writes.push({ key, ttlSeconds });
+  }
+
+  async delete(): Promise<void> {}
+}
+
 function dependencies(): ApiDependencies {
   const projection = {
     listVaults: async () => ({ data: [], nextCursor: null, meta: projectionMeta }),
@@ -261,15 +277,37 @@ test('OpenAPI publishes all four screen endpoint groups', () => {
 
 test('V2 pool and shape routes serialize bigint values as decimal strings', async () => {
   const app = createApp(dependencies());
-  const pools = await request(app).get('/v1/chains/11155111/pools').expect(200);
+  const pools = await request(app)
+    .get('/v1/chains/11155111/pools')
+    .set('Authorization', `Bearer ${config.internalApiKey}`)
+    .expect(200);
   const poolsBody = pools.body as { data: Array<{ maxDepositCap: string }> };
   assert.equal(poolsBody.data[0]?.maxDepositCap, '1000000');
   const preview = await request(app)
     .post('/v1/shapes/preview')
+    .set('Authorization', `Bearer ${config.internalApiKey}`)
     .send({ shapeId: 3, centerTick: 0, ticksLeft: 20, ticksRight: 20, tickSpacing: 20 })
     .expect(200);
   const previewBody = preview.body as { weights: number[] };
   assert.equal(previewBody.weights[0], 10000);
+});
+
+test('V2 pool and shape caches use the canonical route:version:cursor:limit format', async () => {
+  const cache = new RecordingCache();
+  const service = new VaultUiService(11155111, new FakeVaultUiChain(), undefined, cache);
+
+  await service.pools(11155111);
+  await service.shapes();
+
+  assert.deepEqual(cache.reads, [
+    'pool_catalog.chain_11155111.manifest.scope_public:v1.g0:start:100',
+    'shape_catalog.chain_11155111.contract.scope_public:v1.g0:start:14',
+  ]);
+  assert.deepEqual(cache.writes, [
+    { key: cache.reads[0], ttlSeconds: 30 },
+    { key: cache.reads[1], ttlSeconds: 300 },
+  ]);
+  for (const key of cache.reads) assert.equal(key.split(':').length, 4);
 });
 
 test('transaction routes return unsigned plans and never signatures or transaction hashes', async () => {
@@ -280,7 +318,11 @@ test('transaction routes return unsigned plans and never signatures or transacti
     symbol: 'TVLT',
     config: { ...vaultConfig, depositCap: '1000000' },
   };
-  const response = await request(app).post('/v1/chains/11155111/tx/create-vault').send(body).expect(200);
+  const response = await request(app)
+    .post('/v1/chains/11155111/tx/create-vault')
+    .set('Authorization', `Bearer ${config.internalApiKey}`)
+    .send(body)
+    .expect(200);
   const responseBody = response.body as {
     steps: Array<{ data: string }>;
     quote: { expectedShares: string };
@@ -293,15 +335,14 @@ test('transaction routes return unsigned plans and never signatures or transacti
   assert.equal('transactionHash' in responseBody, false);
 });
 
-test('V2 POST preflight is exact-origin and method restricted', async () => {
+test('direct-browser V2 preflight is rejected because the server proxy owns authentication', async () => {
   const app = createApp(dependencies());
-  const allowed = await request(app)
+  await request(app)
     .options('/v1/chains/11155111/tx/deposit')
     .set('Origin', 'https://app.example.org')
     .set('Access-Control-Request-Method', 'POST')
     .set('Access-Control-Request-Headers', 'content-type')
-    .expect(204);
-  assert.equal(allowed.headers['access-control-allow-methods'], 'POST');
+    .expect(403);
   await request(app)
     .options('/v1/chains/11155111/tx/deposit')
     .set('Origin', 'https://evil.example.org')
@@ -313,6 +354,7 @@ test('V2 validators reject unknown fields and unsafe slippage', async () => {
   const app = createApp(dependencies());
   await request(app)
     .post('/v1/chains/11155111/quotes/deposit')
+    .set('Authorization', `Bearer ${config.internalApiKey}`)
     .send({
       mode: 'zapSingle',
       vault: address('3'),
@@ -339,7 +381,8 @@ test('all six parameterized V2 GET routes accept valid route parameters', async 
     `/v1/chains/11155111/vaults/${vault}/rebalances`,
     `/v1/chains/11155111/users/${wallet}/positions?limit=25`,
   ];
-  for (const path of paths) await request(app).get(path).expect(200);
+  for (const path of paths)
+    await request(app).get(path).set('Authorization', `Bearer ${config.internalApiKey}`).expect(200);
 });
 
 test('vault-scoped V2 GET routes return 404 for an unregistered vault', async () => {
@@ -355,6 +398,7 @@ test('vault-scoped V2 GET routes return 404 for an unregistered vault', async ()
   for (const path of paths)
     await request(app)
       .get(path)
+      .set('Authorization', `Bearer ${config.internalApiKey}`)
       .expect(404, /NOT_FOUND/);
 });
 
@@ -362,8 +406,10 @@ test('parameterized V2 GET routes preserve malformed-address and unsupported-cha
   const app = createApp(dependencies());
   await request(app)
     .get('/v1/chains/11155111/vaults/not-an-address')
+    .set('Authorization', `Bearer ${config.internalApiKey}`)
     .expect(400, /INVALID_INPUT/);
   await request(app)
     .get(`/v1/chains/1/users/${address('4')}/positions`)
+    .set('Authorization', `Bearer ${config.internalApiKey}`)
     .expect(400, /INVALID_INPUT/);
 });
